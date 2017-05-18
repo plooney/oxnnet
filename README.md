@@ -29,5 +29,6 @@ python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/
 
 TFLearn v0.3, Tensorflow v1.1, Pandas
 
-* How to run tests
+** How to run tests **
+
 python3 -m unittest
