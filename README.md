@@ -10,6 +10,23 @@
 ### How do I get set up? ###
 
 * Summary of set up
+Create a set of test cases with 
+
+python3 -m oxcnn.test.utils ~/Desktop/TestVolumes
+
+Write out the TensorFlowRecords with
+
+python3 main.py --model models.deepmedic write --save_dir ~/Desktop/TestRect-tfr --data_dir ~/Desktop/TestRect/
+
+Train your the model with
+
+python3 main.py --model models.deepmedic train --tfr_dir ~/Desktop/TestRect-tfr --save_dir ~/Desktop/TestRect-out --test_data ~/Desktop/TestRect-tfr/meta_data.txt --num_epochs 10 --batch_size 10
+
+Test your model with 
+
+python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect/meta_data.txt --model_file ~/Desktop/TestRect-out/model.ckpt-13024.meta
+
+
 
 * Configuration
 
