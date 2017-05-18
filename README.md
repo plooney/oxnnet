@@ -5,7 +5,6 @@
 
 * OXCNN_core is a barebones python program designed to be extended to create more complex neural networks for patch based image analysis
 * Version 0.01
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
 ### How do I get set up? ###
 
