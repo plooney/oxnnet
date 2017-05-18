@@ -32,5 +32,3 @@ TFLearn v0.3, Tensorflow v1.1, Pandas
 
 * How to run tests
 python3 -m unittest
-
-* Deployment instructions
