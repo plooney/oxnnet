@@ -26,7 +26,8 @@ python3 main.py --model models.deepmedic train --tfr_dir ~/Desktop/TestRect-tfr 
 python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect/meta_data.txt --model_file ~/Desktop/TestRect-out/model.ckpt-13024.meta
 
 
-** Dependencies **
+**Dependencies**
+
 TFLearn v0.3, Tensorflow v1.1, Pandas
 
 * How to run tests
