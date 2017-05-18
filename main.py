@@ -35,8 +35,9 @@ def test(FLAGS):
     module = importlib.import_module(FLAGS.model) 
     cnn.test(
         FLAGS.save_dir, 
-        get_testdata(FLAGS.test_data), 
-        FLAGS.model_file, module
+        cnn.get_testdata(FLAGS.test_data_file), 
+        FLAGS.model_file, 
+        module
     )
 
 def write(FLAGS):

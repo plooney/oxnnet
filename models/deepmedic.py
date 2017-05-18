@@ -16,6 +16,7 @@ segment_size_out = segment_size_in-16
 crop_by = 8
 train_eval_test_no = [80,10,10]
 stride = np.array([8,8,8],dtype=np.int)
+batch_size_test = 30
 
 def build_record_writer(data_dir, dir_type_flag):
     data_loader = StandardDataLoader(stride, segment_size_in, crop_by=crop_by)
@@ -28,7 +29,7 @@ def build_record_writer(data_dir, dir_type_flag):
     return RecordWriter(data_loader, StandardProcessTup)
 
 def build_full_inferer():
-    return StandardFullInferer(segment_size_in, segment_size_out, crop_by)
+    return StandardFullInferer(segment_size_in, segment_size_out, crop_by, stride, batch_size_test)
 
 class Model(object):
     def __init__(self, reuse=False, tf_record_dir=None, batch_size=0, num_epochs=0):

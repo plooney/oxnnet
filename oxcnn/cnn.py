@@ -150,7 +150,7 @@ class CNN(object):
                 dices = {}
                 if not os.path.exists(save_dir): os.makedirs(save_dir)
                 for tup in test_data:
-                    inferer = get_full_inferer(module)
+                    inferer = module.build_full_inferer()
                     dice = inferer(sess, tup, save_dir, model)
                     dices[tup[0]] = dice
                     print(dice)
