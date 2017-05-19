@@ -36,6 +36,7 @@ class StandardFullInferer(object):
         img = nib.load(tup[0])
         img_data = img.get_data()
         vol_shape = img_data.shape
+        print(self.stride)
         data_loader = StandardDataLoader(self.stride, self.segment_size_in)
         vs, vsegs = data_loader.vol_s(tup, crop_by=self.crop_by)
         yr_labels, yr = self.evaluate_case(sess, model, img_data, self.batch_size, vs, vsegs)

@@ -28,11 +28,10 @@ def build_record_writer(data_dir, dir_type_flag):
         data_loader.read_data_dir(data_dir, train_eval_test_no)
     return RecordWriter(data_loader, StandardProcessTup)
 
-def build_full_inferer():
-    return StandardFullInferer(segment_size_in, segment_size_out, crop_by, stride, batch_size_test)
 
 class Model(object):
-    def __init__(self, reuse=False, tf_record_dir=None, batch_size=0, num_epochs=0):
+    def __init__(self, batch_size, reuse=False, tf_record_dir=None,  num_epochs=0):
+        self.batch_size = batch_size
         record_reader = RecordReader(segment_size_in,segment_size_out)
         x_shape = [-1] + list(segment_size_in) + [1]
         y_shape = [-1] + list(segment_size_out) + [1]
@@ -70,9 +69,9 @@ class Model(object):
                                           tf.reduce_sum( tf.maximum(self.pred, Y)),name='accuracy')
             with tf.variable_scope("loss") as scope:
                 self.loss_op = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=Y), name='cross_entropy')
-        tf.summary.scalar('dice', self.dice_op)
-        tf.summary.scalar('accuracy', self.accuracy_op)
-        tf.summary.scalar('loss', self.loss_op)
+
+    def build_full_inferer(self):
+        return StandardFullInferer(segment_size_in, segment_size_out, crop_by, stride, self.batch_size)
 
     def build_net(self, X, reuse=False, scope=None):
         # Using TFLearn wrappers for network building

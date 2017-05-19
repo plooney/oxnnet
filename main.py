@@ -18,7 +18,6 @@ FLAGS = None
 def train(FLAGS):
     cnn = CNN()
     module = importlib.import_module(FLAGS.model) 
-    print(FLAGS.tfr_dir)
     cnn.train(
         FLAGS.tfr_dir, 
         FLAGS.save_dir, 
@@ -27,7 +26,8 @@ def train(FLAGS):
         FLAGS.num_epochs,
         FLAGS.batch_size,
         FLAGS.num_save_every,
-        FLAGS.num_batches_val
+        FLAGS.num_batches_val,
+        FLAGS.model_file
     )
 
 def test(FLAGS):
@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser_train.add_argument('--test_data', type=str, required=False)
     parser_train.add_argument('--num_save_every', type=int, required=False)
     parser_train.add_argument('--num_batches_val', type=int, required=False)
+    parser_train.add_argument('--model_file', type=str, required=False)
     parser_train.set_defaults(func=train)
 
     parser_test = subparsers.add_parser('test', help='test help')
