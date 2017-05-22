@@ -25,7 +25,7 @@
 
 **Dependencies**
 
-`tflearn (v0.3), tensorflow (v1.1), pandas, nibabel`
+`tflearn (v0.3), tensorflow (v1.2), pandas, nibabel`
 
 Python 3.5 recommended.
 
