@@ -27,7 +27,7 @@ class CNN(object):
         with open(meta_data_file,'r') as f: d = json.load(f)
         return d['test_tups']
 
-    def train(self, tf_record_dir, save_dir, test_data, module, num_epochs, batch_size, num_save_every, num_batches_val, model_file=None):
+    def train(self, tf_record_dir, save_dir, test_data, module, num_epochs, batch_size, num_save_every, model_file=None):
         train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [], 'val_loss': [], 'val_dice': []}
         meta_data_filepath = os.path.join(tf_record_dir,'meta_data.txt')
         with open(meta_data_filepath,'r') as f:
@@ -44,31 +44,35 @@ class CNN(object):
 
         with tf.Graph().as_default():
             tflearn.config.init_training_mode()
-            saver = tf.train.Saver()
-            model = module.Model(batch_size, False, tf_record_dir, num_epochs)
-            with tf.name_scope('summaries'):
+            with tf.name_scope('training') as scope:
+                model = module.Model(batch_size, False, tf_record_dir, num_epochs,'training')
                 tf.summary.scalar('dice', model.dice_op)
                 tf.summary.scalar('accuracy', model.accuracy_op)
                 tf.summary.scalar('loss', model.loss_op)
-            model_eval = module.Model(batch_size, True, tf_record_dir, num_epochs) if num_batches_val else None
-            model_test = module.Model(batch_size, True)
+            with tf.name_scope('eval'):
+                model_eval = module.Model(batch_size, True, tf_record_dir, num_epochs, 'training') if num_save_every else None
+                tf.summary.scalar('dice', model_eval.dice_op)
+                tf.summary.scalar('accuracy', model_eval.accuracy_op)
+                tf.summary.scalar('loss', model_eval.loss_op)
+            model_test = module.Model(batch_size, True, scope='training')
             inferer = model_test.build_full_inferer()
             global_step = tf.Variable(0, name='global_step', trainable=False)
-            optimizer = tf.train.AdamOptimizer().minimize(model.loss_op, global_step=global_step)
+            optimizer = tf.train.AdamOptimizer().minimize(model.loss_op, global_step=global_step, aggregation_method = tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             avg_time = 0
-            #with tf.Session(config = config) as sess:
-            with tf.Session() as sess:
+            with tf.Session(config = config) as sess:
+            #with tf.Session() as sess:
                 merged = s.summarize_variables()
-                #merged = tf.merge_all_summaries()
                 merged = tf.summary.merge_all()
+                #merged_train = tf.summary.merge(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='training'))
+                #merged_eval = tf.summary.merge(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='eval'))
                 train_writer = tf.summary.FileWriter(save_dir + '/train',sess.graph)
                 eval_writer = tf.summary.FileWriter(save_dir + '/test')
                 sess.run(tf.local_variables_initializer())
                 sess.run(tf.global_variables_initializer())
+                saver = tf.train.Saver()
                 coord = tf.train.Coordinator()
-                #saver = tf.train.Saver(tf.global_variables() + tf.local_variables())
                 tf.train.start_queue_runners(sess, coord=coord)
                 if model_file:
                     saver.restore(sess, model_file)
@@ -82,7 +86,6 @@ class CNN(object):
                         train_loss, train_dice, train_accuracy, _, summaries = sess.run([model.loss_op, model.dice_op, model.accuracy_op, optimizer, merged])
                         #summaries = sess.run(merged)
                         #train_loss, train_dice, train_accuracy, _ = sess.run([model.loss_op, model.dice_op, model.accuracy_op, optimizer])
-                        train_writer.add_summary(summaries, cur_step)
                         end = time.time()
                         avg_time = avg_time + ((end-start)-avg_time)/cur_step if cur_step else end - start
                         time_remaining_s = (num_batches - cur_step)*avg_time
@@ -95,26 +98,22 @@ class CNN(object):
                         train_loss_iterations['epoch'].append(epoch)
                         train_loss_iterations['train_loss'].append(train_loss)
                         train_loss_iterations['train_dice'].append(train_dice)
-                        if num_batches_val and cur_step % num_save_every == 0:
-                            start = time.time()
+                        #if num_batches_val and cur_step % num_save_every == 0:
+                        if cur_step % num_save_every == 0:
                             tflearn.is_training(False)
-                            avg_val_loss = 0
-                            avg_val_dice = 0
-                            for i in range(0,num_batches_val):
-                                print(i,num_batches_val)
-                                # evaluate
-                                val_loss, val_dice, val_accuracy = sess.run([model_eval.loss_op, model_eval.dice_op, model_eval.accuracy_op])
-                                avg_val_loss += val_loss / num_batches_val
-                                avg_val_dice += val_dice / num_batches_val
-                            print('val_loss: {:.3f}, val_dice: {:.3f}, accuracy: {:.3f}'.format(avg_val_loss,avg_val_dice,val_accuracy))
-                            train_loss_iterations['val_loss'].append(avg_val_loss)
-                            train_loss_iterations['val_dice'].append(avg_val_dice)
+                            start = time.time()
+                            train_writer.add_summary(summaries, cur_step)
+                            val_loss, val_dice, val_accuracy, summaries = sess.run([model_eval.loss_op, model_eval.dice_op, model_eval.accuracy_op, merged])
+                            eval_writer.add_summary(summaries, cur_step)
+                            print('val_loss: {:.3f}, val_dice: {:.3f}, accuracy: {:.3f}'.format(val_loss,val_dice,val_accuracy))
+                            train_loss_iterations['val_loss'].append(val_loss)
+                            train_loss_iterations['val_dice'].append(val_dice)
                             checkpoint_path = os.path.join(save_dir, 'model.ckpt')
                             saver.save(sess, checkpoint_path, global_step=global_step)
                             print(saver.last_checkpoints)
                             print("model saved to {}".format(checkpoint_path))
                             end = time.time()
-                            avg_time = avg_time + ((end-start)/num_save_every-avg_time)/cur_step if cur_step else avg_time  
+                            avg_time = avg_time + ((end-start)-avg_time)/cur_step if cur_step else avg_time  
                         else:
                             train_loss_iterations['val_loss'].append(None)
                             train_loss_iterations['val_dice'].append(None)
@@ -129,7 +128,6 @@ class CNN(object):
                                 print(dice)
                             end = time.time()
                             avg_time = avg_time + ((end-start)/num_full_validation_every-avg_time)/cur_step if cur_step else avg_time  
-                        #global_step += 1
                 except tf.errors.OutOfRangeError as e :
                     print('Done training')
                 finally:
