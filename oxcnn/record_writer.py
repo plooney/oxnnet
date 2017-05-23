@@ -113,7 +113,7 @@ class RecordReader(object):
             filenames, num_epochs=num_epochs, shuffle=True)
         example_list = [self.read_and_decode(filename_queue)
                         for _ in range(read_threads)]
-        min_after_dequeue = 1000
+        min_after_dequeue = 10000
         capacity = min_after_dequeue + 3 * batch_size
         example_batch, label_batch = tf.train.shuffle_batch_join(
             example_list, batch_size=batch_size, capacity=capacity,

@@ -28,7 +28,6 @@ def build_record_writer(data_dir, dir_type_flag):
         data_loader.read_data_dir(data_dir, train_eval_test_no)
     return RecordWriter(data_loader, StandardProcessTup)
 
-
 class Model(object):
     def __init__(self, batch_size, reuse=False, tf_record_dir=None,  num_epochs=0, scope='inference'):
         self.batch_size = batch_size
@@ -36,7 +35,7 @@ class Model(object):
         x_shape = [-1] + list(segment_size_in) + [1]
         y_shape = [-1] + list(segment_size_out) + [1]
         with tf.device('/cpu:0'):
-            with tf.variable_scope("input") as scope:
+            with tf.variable_scope("input"):
                 if tf_record_dir:
                     if reuse:
                         X, Y = record_reader.input_pipeline(False, batch_size, None, tf_record_dir)
