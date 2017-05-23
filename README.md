@@ -13,7 +13,7 @@
 
 **Write out the TensorFlowRecords**
 
-`python3 main.py --model models.deepmedic write --save_dir ~/Desktop/TestRect-tfr --data_dir ~/Desktop/TestRect/`
+`python3 main.py --model models.deepmedic write --save_dir ~/Desktop/TestRect-tfr --data_dir ~/Desktop/TestVolumes/`
 
 **Train the model**
 
