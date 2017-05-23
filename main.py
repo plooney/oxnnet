@@ -26,7 +26,6 @@ def train(FLAGS):
         FLAGS.num_epochs,
         FLAGS.batch_size,
         FLAGS.num_save_every,
-        FLAGS.num_batches_val,
         FLAGS.model_file
     )
 

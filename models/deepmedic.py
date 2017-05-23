@@ -30,45 +30,47 @@ def build_record_writer(data_dir, dir_type_flag):
 
 
 class Model(object):
-    def __init__(self, batch_size, reuse=False, tf_record_dir=None,  num_epochs=0):
+    def __init__(self, batch_size, reuse=False, tf_record_dir=None,  num_epochs=0, scope='inference'):
         self.batch_size = batch_size
         record_reader = RecordReader(segment_size_in,segment_size_out)
         x_shape = [-1] + list(segment_size_in) + [1]
         y_shape = [-1] + list(segment_size_out) + [1]
-        with tf.variable_scope("input") as scope:
-            if tf_record_dir:
-                if reuse:
-                    X, Y = record_reader.input_pipeline(False, batch_size, None, tf_record_dir)
+        with tf.device('/cpu:0'):
+            with tf.variable_scope("input") as scope:
+                if tf_record_dir:
+                    if reuse:
+                        X, Y = record_reader.input_pipeline(False, batch_size, None, tf_record_dir)
+                    else:
+                        X, Y = record_reader.input_pipeline(True, batch_size, num_epochs, tf_record_dir)
+                    self.X = tf.reshape(X, x_shape)
+                    self.Y = tf.reshape(Y, y_shape)
                 else:
-                    X, Y = record_reader.input_pipeline(True, batch_size, num_epochs, tf_record_dir)
-                self.X = tf.reshape(X, x_shape)
-                self.Y = tf.reshape(Y, y_shape)
-            else:
-                self.X = tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None] + segment_size_in.tolist() + [1])
-                self.Y = tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None] + segment_size_out.tolist() + [1])
-            #X = (tf.cast(self.X, tf.float32) * (2. / 255)) - 1
-            X = self.X
-            Y = tf.cast(self.Y, tf.float32)
-        with tf.variable_scope("inference") as scope:
-            if reuse:
-                scope.reuse_variables()
-                logits = self.build_net(X,reuse=True,scope=scope)
-            else: 
-                logits = self.build_net(X,reuse=False,scope=scope)
-            with tf.variable_scope("pred") as scope:
-                self.pred = tf.sigmoid(logits)
-            with tf.variable_scope("dice") as scope:
-                self.dice_op = tf.divide(2*tf.reduce_sum(tf.multiply(self.pred, Y)),
-                                      tf.reduce_sum(self.pred)+tf.reduce_sum(Y),name='dice')
-            with tf.variable_scope("accuracy") as scope:
-                self.accuracy_op = tf.divide(tf.reduce_sum(tf.multiply(self.pred, Y)),
-                                          tf.reduce_sum( tf.maximum(self.pred, Y)),name='accuracy')
-            with tf.variable_scope("loss") as scope:
-                self.loss_op = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=Y), name='cross_entropy')
+                    self.X = tf.placeholder(
+                        dtype=tf.float32,
+                        shape=[None] + segment_size_in.tolist() + [1])
+                    self.Y = tf.placeholder(
+                        dtype=tf.float32,
+                        shape=[None] + segment_size_out.tolist() + [1])
+                #X = (tf.cast(self.X, tf.float32) * (2. / 255)) - 1
+                X = self.X
+                Y = tf.cast(self.Y, tf.float32)
+        with tf.variable_scope(scope):
+            with tf.variable_scope("inference") as scope:
+                if reuse:
+                    scope.reuse_variables()
+                    logits = self.build_net(X,reuse=True,scope=scope)
+                else: 
+                    logits = self.build_net(X,reuse=False,scope=scope)
+                with tf.variable_scope("pred") as scope:
+                    self.pred = tf.sigmoid(logits)
+                with tf.variable_scope("dice") as scope:
+                    self.dice_op = tf.divide(2*tf.reduce_sum(tf.multiply(self.pred, Y)),
+                                          tf.reduce_sum(self.pred)+tf.reduce_sum(Y),name='dice')
+                with tf.variable_scope("accuracy") as scope:
+                    self.accuracy_op = tf.divide(tf.reduce_sum(tf.multiply(self.pred, Y)),
+                                              tf.reduce_sum( tf.maximum(self.pred, Y)),name='accuracy')
+                with tf.variable_scope("loss") as scope:
+                    self.loss_op = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=Y), name='cross_entropy')
 
     def build_full_inferer(self):
         return StandardFullInferer(segment_size_in, segment_size_out, crop_by, stride, self.batch_size)
