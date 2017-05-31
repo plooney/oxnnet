@@ -21,7 +21,7 @@
 
 **Test the model**
 
-`python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect/meta_data.txt --model_file ~/Desktop/TestRect-out/model.ckpt-13024.meta`
+python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect-tfr/meta_data.txt --model_file /home/padraig/Desktop/TestRect-out/epoch_model.ckpt-2243.meta --batch_size 10
 
 **Dependencies**
 
