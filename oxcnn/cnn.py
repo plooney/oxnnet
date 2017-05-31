@@ -15,13 +15,10 @@ import models
 
 class CNN(object):
 
-    def write_to_csv(self,file_name, my_dict, mode='w', header=True):
-        pd.DataFrame(data=train_loss_iterations,
+    def write_csv(self,fname, my_dict, mode='w', header=True):
+        pd.DataFrame(data=my_dict,
                      columns=list(my_dict.keys())
-                    ).to_csv(os.path.join(save_dir, 'log.csv'))
-        pd.DataFrame(data=full_validation_metrics,
-                     columns=list(full_validation_metrics.keys())
-                    ).to_csv(os.path.join(save_dir, 'full_validation_log.csv'))
+                    ).to_csv(fname, mode=mode, header=header)
 
     def get_testdata(self, meta_data_file):
         with open(meta_data_file,'r') as f: d = json.load(f)
@@ -35,33 +32,24 @@ class CNN(object):
         num_examples = sum([x[1] for x in meta_data['train_examples'].items()])
         num_batches_per_epoch = num_examples//batch_size
         num_batches = math.ceil(num_epochs*num_batches_per_epoch) if num_epochs else 0
-        num_examples_val = sum([x[1] for x in meta_data['validation_examples'].items()])
+        num_examples_val = sum([x[1] for x in meta_data['validation_examples'].items()]) if num_epochs else 0
         num_batches_per_epoch_val = num_examples_val/batch_size
         num_full_validation_every = int(1 * num_batches_per_epoch)
         save_pred_dir=os.path.join(os.getcwd(),'save_preds')
         validation_tups = meta_data['validation_tups']
         full_validation_metrics = {k[0]:[] for  k in validation_tups}
         if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
             self.write_csv(os.path.join(save_dir, 'log.csv'), train_loss_iterations)
             self.write_csv(os.path.join(save_dir, 'full_validation_log.csv'), full_validation_metrics)
 
         with tf.Graph().as_default():
             tflearn.config.init_training_mode()
             with tf.name_scope('training') as scope:
-                model = module.Model(batch_size, False, tf_record_dir, num_epochs,'training')
-#                tf.summary.scalar('dice', model.dice_op)
-#                tf.summary.scalar('precision', model.precision_op)
-#                tf.summary.scalar('recall', model.recall_op)
-#                tf.summary.scalar('mse', model.mse_op)
-#                tf.summary.scalar('loss', model.loss_op)
+                model = module.Model(batch_size, False, tf_record_dir, num_epochs)
             with tf.name_scope('eval'):
-                model_eval = module.Model(batch_size, True, tf_record_dir, num_epochs, 'training') if num_save_every else None
-#                tf.summary.scalar('dice', model_eval.dice_op)
-#                tf.summary.scalar('precision', model_eval.precision_op)
-#                tf.summary.scalar('recall', model_eval.recall_op)
-#                tf.summary.scalar('mse', model_eval.mse_op)
-#                tf.summary.scalar('loss', model_eval.loss_op)
-            model_test = module.Model(batch_size, True, scope='training')
+                model_eval = module.Model(batch_size, True, tf_record_dir, num_epochs) if num_save_every else None
+            model_test = module.Model(batch_size, True)
             inferer = model_test.build_full_inferer()
             global_step = tf.Variable(0, name='global_step', trainable=False)
             optimizer = tf.train.AdamOptimizer().minimize(model.loss_op, global_step=global_step)
@@ -70,12 +58,13 @@ class CNN(object):
             avg_time = 0
             with tf.Session(config = config) as sess:
             #with tf.Session() as sess:
-                #merged = s.summarize_variables()
+                merged = s.summarize_variables()
                 merged = tf.summary.merge_all()
                 summary_writer = tf.summary.FileWriter(save_dir,sess.graph)
                 sess.run(tf.local_variables_initializer())
                 sess.run(tf.global_variables_initializer())
                 saver = tf.train.Saver()
+                saver_epoch = tf.train.Saver(max_to_keep=None)
                 coord = tf.train.Coordinator()
                 tf.train.start_queue_runners(sess, coord=coord)
                 if model_file:
@@ -92,21 +81,21 @@ class CNN(object):
                         if cur_step % num_save_every == 0:
                             tflearn.is_training(False)
                             start = time.time()
-                            train_loss, train_dice, train_mse, _, val_loss, val_dice, val_mse, summaries = sess.run([model.loss_op, model.dice_op, model.mse_op, optimizer, model_eval.loss_op, model_eval.dice_op, model_eval.mse_op, merged])
+                            train_loss, train_dice, val_loss, val_dice, summaries = sess.run([model.loss_op, model.dice_op, model_eval.loss_op, model_eval.dice_op, merged, optimizer] + model_eval.metric_update_ops + model.metric_update_ops)[0:5]
                             summary_writer.add_summary(summaries, cur_step)
-                            message_string = ' val_loss: {:.3f}, val_dice: {:.3f}, mse: {:.3f}'.format(val_loss,val_dice,0)
+                            message_string = ' val_loss: {:.3f}, val_dice: {:.3f}, mse: {:.3f}'.format(val_loss,val_dice, 0)
                             train_loss_iterations['val_loss'].append(val_loss)
                             train_loss_iterations['val_dice'].append(val_dice)
-                            should_save = val_loss < np.median(sorted(train_loss_iterations['val_loss'])[0:10])
-                            should_save = should_save and np.median(train_loss_iterations['val_loss'][-10:]) < np.median(sorted(train_loss_iterations['val_loss'])[0:10])
-                            if should_save:
-                                checkpoint_path = os.path.join(save_dir, 'model.ckpt')
-                                saver.save(sess, checkpoint_path, global_step=global_step)
-                                print("model saved to {}".format(checkpoint_path))
+                            should_save = val_loss < np.median(sorted([x for x in  train_loss_iterations['val_loss'][:-10] if x is not None])[0:10])
+                            should_save = should_save and np.median([x for x in  train_loss_iterations['val_loss'] if x is not None][-10:]) < np.median(sorted([x for x in  train_loss_iterations['val_loss'] if x is not None])[:-10])
+                            #if not train_loss_iterations['val_loss'] or should_save:
+                            #    checkpoint_path = os.path.join(save_dir, 'model.ckpt')
+                            #    saver.save(sess, checkpoint_path, global_step=global_step)
+                            #    print("model saved to {}".format(checkpoint_path))
                         else:
                             train_loss_iterations['val_loss'].append(None)
                             train_loss_iterations['val_dice'].append(None)
-                            train_loss, train_dice, train_mse, _ = sess.run([model.loss_op, model.dice_op, model.mse_op, optimizer])
+                            train_loss, train_dice, _ = sess.run([model.loss_op, model.dice_op, optimizer])[0:3]
                         train_loss_iterations['iteration'].append(cur_step)
                         train_loss_iterations['epoch'].append(epoch)
                         train_loss_iterations['train_loss'].append(train_loss)
@@ -116,12 +105,12 @@ class CNN(object):
                                   mode='a', header=False)
                         end = time.time()
                         avg_time = avg_time + ((end-start)-avg_time)/cur_step if cur_step else end - start
-                        time_remaining_s = (num_batches - cur_step)*avg_time
+                        time_remaining_s = (num_batches - cur_step)*avg_time if num_epochs else 0
                         t = timedelta(seconds=time_remaining_s)
                         time_remaining_string = "time left: {}m-{}d {} (h:mm:ss)".format(t.days/30, t.days%30, timedelta(seconds=t.seconds))
                         message_string = "{}/{} (epoch {}), train_loss = {:.3f}, dice = {:.3f}, accuracy = {:.3f}, time/batch = {:.3f}, " \
-                              .format(cur_step,num_batches,
-                                      epoch, train_loss, train_dice, train_accuracy, end - start) + time_remaining_string + message_string 
+                                .format(cur_step,num_batches,
+                                      epoch, train_loss, train_dice, 0, end - start) + time_remaining_string + message_string 
                         print(message_string)
 
                         if num_full_validation_every and cur_step % num_full_validation_every == 0 and cur_step:
@@ -133,10 +122,13 @@ class CNN(object):
                                 full_validation_metrics[tup[0]].append(dice)
                                 print(dice)
                             end = time.time()
-                            avg_time = avg_time + ((end-start)/num_full_validation_every-avg_time)/cur_step if cur_step else avg_time  
-                            self.write_csv(os.path.join(save_dir, 'full_validation_log.csv'), 
-                                      {k:([v[-1]] if v else []) for k,v in full_validation_metrics.items()}, 
-                                      mode='a', 
+                            avg_time = avg_time + ((end-start)/num_full_validation_every-avg_time)/cur_step if cur_step else avg_time
+                            checkpoint_path = os.path.join(save_dir, 'epoch_model.ckpt')
+                            saver.save(sess, checkpoint_path, global_step=global_step)
+                            print("epoch model saved to {}".format(checkpoint_path))
+                            self.write_csv(os.path.join(save_dir, 'full_validation_log.csv'),
+                                      {k:([v[-1]] if v else []) for k,v in full_validation_metrics.items()},
+                                      mode='a',
                                       header=False)
                 except tf.errors.OutOfRangeError as e :
                     print('Done training')
@@ -146,7 +138,7 @@ class CNN(object):
                     coord.request_stop()
                 print('Finished')
 
-    def test(self, save_dir, test_data, model_file, module):
+    def test(self, save_dir, test_data, model_file, module, batch_size):
         with tf.get_default_graph().as_default():
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth=True

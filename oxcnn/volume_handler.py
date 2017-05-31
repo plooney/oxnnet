@@ -90,12 +90,17 @@ class ImageHandler(object):
             vol_segs.append(vol)
         return vol_segs
 
-    def max_op_ov_overlap(arr_recons,seg_arr,mesh,mesh_rel): np.maximum.reduce([arr_recons[mesh],vol.seg_arr[mesh_rel]])
+    def max_op_on_overlap(arr_recons,seg_arr,indices,indices_rel): 
+        return np.maximum(arr_recons[indices],seg_arr[indices_rel])
 
-    def create_image_from_windows(self,vol_segs,image_shape,op_on_overlap=None):
+    def create_image_from_windows(self,vol_segs,image_shape,op_on_overlap=max_op_on_overlap):
         arr_recons = np.zeros(image_shape) 
         for vol in vol_segs:
-            mesh = np.meshgrid(*vol.inds,indexing='ij')
-            mesh_rel = np.meshgrid(*vol.inds_rel,indexing='ij')
-            arr_recons[mesh] = op_on_overlap(arr_recons,vol.seg_arr,mesh,mesh_rel) if op_on_overlap else vol.seg_arr[mesh_rel]  
+            mins_inds = np.array([ x.min() for x in  vol.inds])
+            maxs_inds = np.array([ x.max() for x in  vol.inds])+1
+            indices = tuple([slice(m1,m2) for m1,m2 in zip(mins_inds,maxs_inds)])
+            mins_inds_rel = np.array([ x.min() for x in  vol.inds_rel])
+            maxs_inds_rel = np.array([ x.max() for x in  vol.inds_rel])+1
+            indices_rel = tuple([slice(m1,m2) for m1,m2 in zip(mins_inds_rel,maxs_inds_rel)])
+            arr_recons[indices] = op_on_overlap(arr_recons,vol.seg_arr,indices,indices_rel) if op_on_overlap else vol.seg_arr[indices_rel]
         return arr_recons
