@@ -36,7 +36,8 @@ def test(FLAGS):
         FLAGS.save_dir, 
         cnn.get_testdata(FLAGS.test_data_file), 
         FLAGS.model_file, 
-        module
+        module,
+        FLAGS.batch_size
     )
 
 def write(FLAGS):
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     parser_test.add_argument('--save_dir', type=str, required=True)
     parser_test.add_argument('--test_data_file', type=str, required=True)
     parser_test.add_argument('--model_file', type=str, required=True)
+    parser_test.add_argument('--batch_size', type=int, required=True)
     parser_test.set_defaults(func=test)
 
     parser_write = subparsers.add_parser('write', help='write help')

@@ -78,7 +78,7 @@ class CNN(object):
                         #print(tf.get_collection('summaries'))
                         #if num_batches_val and cur_step % num_save_every == 0:
                         message_string = '' 
-                        if cur_step % num_save_every == 0:
+                        if num_save_every and cur_step % num_save_every == 0:
                             tflearn.is_training(False)
                             start = time.time()
                             train_loss, train_dice, val_loss, val_dice, summaries = sess.run([model.loss_op, model.dice_op, model_eval.loss_op, model_eval.dice_op, merged, optimizer] + model_eval.metric_update_ops + model.metric_update_ops)[0:5]
