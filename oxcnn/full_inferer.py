@@ -47,6 +47,10 @@ class StandardFullInferer(object):
         img_handler = ImageHandler()
         pre_arr = img_handler.create_image_from_windows(vpreds,vol_shape)
 
+        img_nii = nib.Nifti1Image(pre_arr.astype(np.float32), affine=img.affine)
+        out_name = os.path.join(save_dir,'prob_' + os.path.basename(tup[0]).split('.')[0] + '.nii.gz')
+        nib.nifti1.save(img_nii,out_name)
+
         seg_img = nib.load(tup[2]).get_data()
         pre_arr = pre_arr > 0.5
 

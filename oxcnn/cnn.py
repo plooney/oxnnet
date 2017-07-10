@@ -24,8 +24,8 @@ class CNN(object):
         with open(meta_data_file,'r') as f: d = json.load(f)
         return d['test_tups']
 
-    def train(self, tf_record_dir, save_dir, test_data, module, num_epochs, batch_size, num_save_every, model_file=None):
-        train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [], 'val_loss': [], 'val_dice': []}
+    def train(self, tf_record_dir, save_dir, test_data, module, num_epochs, batch_size, num_save_every, model_file=None, early_stop=False):
+        train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [], 'train_mse': [], 'val_loss': [], 'val_dice': [], 'val_mse': []}
         meta_data_filepath = os.path.join(tf_record_dir,'meta_data.txt')
         with open(meta_data_filepath,'r') as f:
             meta_data = json.load(f)
@@ -53,11 +53,11 @@ class CNN(object):
             inferer = model_test.build_full_inferer()
             global_step = tf.Variable(0, name='global_step', trainable=False)
             optimizer = tf.train.AdamOptimizer().minimize(model.loss_op, global_step=global_step)
-            config = tf.ConfigProto()
-            config.gpu_options.allow_growth = True
             avg_time = 0
-            with tf.Session(config = config) as sess:
-            #with tf.Session() as sess:
+            #config = tf.ConfigProto()
+            #config.gpu_options.allow_growth = True
+            #with tf.Session(config = config) as sess:
+            with tf.Session() as sess:
                 merged = s.summarize_variables()
                 merged = tf.summary.merge_all()
                 summary_writer = tf.summary.FileWriter(save_dir,sess.graph)
@@ -70,7 +70,8 @@ class CNN(object):
                 if model_file:
                     saver.restore(sess, model_file)
                 try:
-                    while not coord.should_stop():
+                    continue_training = True
+                    while continue_training and not coord.should_stop():
                         tflearn.is_training(True)
                         cur_step = sess.run(global_step)
                         epoch = cur_step//num_batches_per_epoch
@@ -81,25 +82,35 @@ class CNN(object):
                         if num_save_every and cur_step % num_save_every == 0:
                             tflearn.is_training(False)
                             start = time.time()
-                            train_loss, train_dice, val_loss, val_dice, summaries = sess.run([model.loss_op, model.dice_op, model_eval.loss_op, model_eval.dice_op, merged, optimizer] + model_eval.metric_update_ops + model.metric_update_ops)[0:5]
+                            train_loss, train_dice, val_loss, val_dice, summaries, train_mse, val_mse = sess.run([model.loss_op, model.dice_op, model_eval.loss_op, model_eval.dice_op, merged, model.mse, model_eval.mse, optimizer] + model_eval.metric_update_ops + model.metric_update_ops)[0:7]
                             summary_writer.add_summary(summaries, cur_step)
-                            message_string = ' val_loss: {:.3f}, val_dice: {:.3f}, mse: {:.3f}'.format(val_loss,val_dice, 0)
+                            message_string = ' val_loss: {:.3f}, val_dice: {:.3f}, mse: {:.5f}'.format(val_loss,val_dice, val_mse)
+                            non_zero_losses = [x for x in  train_loss_iterations['val_loss'] if x is not None]
+                            non_zero_dices = [x for x in  train_loss_iterations['val_dice'] if x is not None]
+                            non_zero_val_mses = [x for x in  train_loss_iterations['val_mse'] if x is not None and x > 0]
+                            should_save = val_loss < np.percentile(non_zero_losses, 25) if non_zero_losses else True
+                            should_save = should_save and val_dice > np.percentile(non_zero_dices, 75) if non_zero_dices else True
+                            min_mse =  0 if not non_zero_val_mses else np.min(non_zero_val_mses)
+                            should_save = should_save and val_mse < min_mse and min_mse
                             train_loss_iterations['val_loss'].append(val_loss)
                             train_loss_iterations['val_dice'].append(val_dice)
-                            should_save = val_loss < np.median(sorted([x for x in  train_loss_iterations['val_loss'][:-10] if x is not None])[0:10])
-                            should_save = should_save and np.median([x for x in  train_loss_iterations['val_loss'] if x is not None][-10:]) < np.median(sorted([x for x in  train_loss_iterations['val_loss'] if x is not None])[:-10])
-                            #if not train_loss_iterations['val_loss'] or should_save:
-                            #    checkpoint_path = os.path.join(save_dir, 'model.ckpt')
-                            #    saver.save(sess, checkpoint_path, global_step=global_step)
-                            #    print("model saved to {}".format(checkpoint_path))
+                            train_loss_iterations['val_mse'].append(val_mse)
+                            if should_save:
+                                checkpoint_path = os.path.join(save_dir, 'epoch_' + str(epoch) + '_model.ckpt')
+                                saver.save(sess, checkpoint_path, global_step=global_step)
+                                print("model saved to {}".format(checkpoint_path))
+                            non_zero_val_mses = [x for x in  train_loss_iterations['val_mse'] if x is not None and x > 0]
+                            if early_stop: continue_training = np.median(non_zero_val_mses[-10:]) <= np.min(non_zero_val_mses[:-10]) if non_zero_val_mses[:-10] and epoch > 0 else True
                         else:
                             train_loss_iterations['val_loss'].append(None)
                             train_loss_iterations['val_dice'].append(None)
-                            train_loss, train_dice, _ = sess.run([model.loss_op, model.dice_op, optimizer])[0:3]
+                            train_loss_iterations['val_mse'].append(None)
+                            train_loss, train_dice, train_mse = sess.run([model.loss_op, model.dice_op, model.mse, optimizer])[0:3]
                         train_loss_iterations['iteration'].append(cur_step)
                         train_loss_iterations['epoch'].append(epoch)
                         train_loss_iterations['train_loss'].append(train_loss)
                         train_loss_iterations['train_dice'].append(train_dice)
+                        train_loss_iterations['train_mse'].append(train_mse)
                         self.write_csv(os.path.join(save_dir, 'log.csv'), 
                                   {k:([v[-1]] if v else []) for k,v in train_loss_iterations.items()}, 
                                   mode='a', header=False)
@@ -124,7 +135,7 @@ class CNN(object):
                             end = time.time()
                             avg_time = avg_time + ((end-start)/num_full_validation_every-avg_time)/cur_step if cur_step else avg_time
                             checkpoint_path = os.path.join(save_dir, 'epoch_model.ckpt')
-                            saver.save(sess, checkpoint_path, global_step=global_step)
+                            saver_epoch.save(sess, checkpoint_path, global_step=global_step)
                             print("epoch model saved to {}".format(checkpoint_path))
                             self.write_csv(os.path.join(save_dir, 'full_validation_log.csv'),
                                       {k:([v[-1]] if v else []) for k,v in full_validation_metrics.items()},
@@ -147,7 +158,7 @@ class CNN(object):
             saver = tf.train.Saver()
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
-                saver.restore(sess, tf.train.latest_checkpoint(os.path.dirname(model_file)))
+                saver.restore(sess, model_file)
                 tflearn.is_training(False)
                 with tf.variable_scope("inference") as scope:
                     scope.reuse_variables()
