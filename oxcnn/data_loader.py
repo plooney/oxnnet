@@ -93,7 +93,6 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
     def read_data_dir(self,data_dir,ttv_list):
         tups = []
         for d in os.listdir(data_dir):
-
             f = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' not in x and 'distmap' not in x][0]
             m = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' in x and 'thresh' not in x][0]
             s = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' in x][0]
@@ -117,9 +116,6 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         self.validation_tups = append_to_tups(self.validation_tups)
         self.test_tups = append_to_tups(self.test_tups)
         print(self.train_tups)
-
-
-
 
     def get_batch(self, tup):
         print('Reading img {}'.format(tup[0]))
@@ -166,7 +162,7 @@ class TwoPathwayDataLoader(AbstractDataLoader):
         self.crop_by = crop_by
         self.ss_factor = ss_factor
 
-    def get_batch(self,tup,crop_by=0):
+    def get_batch(self,tup):
         print('Reading img {}'.format(tup[0]))
         batchx = []
         batchx_ss = []
