@@ -4,7 +4,8 @@ import nibabel as nib
 import tempfile
 from oxcnn.test import utils
 from oxcnn.volume_handler import VolumeSegment, ImageHandler
-
+from oxcnn.data_loader import TwoPathwayDataLoader
+import matplotlib.pyplot as plt
 import unittest
 
 class TestMethods(unittest.TestCase):
@@ -46,3 +47,20 @@ class TestMethods(unittest.TestCase):
         #    if vol_list_segs2[0] ==v: print(i)
         for v1, v2 in zip(vol_list_segs,vol_list_segs2):
             self.assertTrue(v1 == v2)
+
+        tup = (img_file_path, mask_file_path, seg_file_path)
+        
+        stride = np.array([10,10,10])
+        segment_size = np.array([20,20,20])
+        segment_size_ss = np.array([25,25,25])
+        dl = TwoPathwayDataLoader(stride, segment_size, segment_size_ss)
+        vl, vl_seg, vl_ss = dl.vol_s(tup)
+        vl0 = vl[0].seg_arr[:,:,10]
+        vl0_ss = vl_ss[0].seg_arr[:,:,12]
+        fig, ax = plt.subplots(2,1)
+        ax[0].imshow(vl0)
+        ax[1].imshow(vl0_ss)
+        plt.show()
+
+
+
