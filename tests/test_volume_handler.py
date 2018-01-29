@@ -2,11 +2,12 @@ import numpy as np
 import sys
 import nibabel as nib
 import tempfile
-from oxcnn.test import utils
+from tests import utils
 from oxcnn.volume_handler import VolumeSegment, ImageHandler
 from oxcnn.data_loader import TwoPathwayDataLoader
 import matplotlib.pyplot as plt
 import unittest
+from skimage.measure import block_reduce
 
 class TestMethods(unittest.TestCase):
 
@@ -19,7 +20,7 @@ class TestMethods(unittest.TestCase):
         stride = np.array([10]*3)
         window_shape = np.array([50]*3)
         image_arr =  nib.load(img_file_path).get_data()
-        vol_list = img_handler.image_to_vols(image_arr,stride,window_shape,add_rnd_offset=False)
+        vol_list = img_handler.image_to_vols(image_arr,stride,window_shape)
         mask_arr = nib.load(mask_file_path).get_data()
         img_recons_arr = img_handler.create_image_from_windows(vol_list,image_arr.shape)
         img_diff_arr = mask_arr*(image_arr - img_recons_arr)
@@ -35,7 +36,6 @@ class TestMethods(unittest.TestCase):
         seg_arr =  nib.load(seg_file_path).get_data()
         self.assertFalse(np.any(mask_arr*(seg_arr-seg_recons_arr)))
 
-
         vol1 = vol_list_segs[0]
         vol2 = VolumeSegment(vol1.start_voxel)
         vol2.read_array(seg_arr,vol1.seg_arr.shape)
@@ -50,17 +50,23 @@ class TestMethods(unittest.TestCase):
 
         tup = (img_file_path, mask_file_path, seg_file_path)
         
-        stride = np.array([10,10,10])
-        segment_size = np.array([20,20,20])
-        segment_size_ss = np.array([25,25,25])
+        stride = np.array([9,9,9])
+        segment_size = np.array([25,25,25])
+        segment_size_ss = np.array([19,19,19])
         dl = TwoPathwayDataLoader(stride, segment_size, segment_size_ss)
         vl, vl_seg, vl_ss = dl.vol_s(tup)
+        img_recons_arr = img_handler.create_image_from_windows(vl_ss, np.array(image_arr.shape)//3+1)
+
+        img_nii = nib.Nifti1Image(img_recons_arr, affine=np.eye(4))
+        nib.nifti1.save(img_nii,'blockreduced_recons_test.nii.gz')
+
+        img_reduced_arr = block_reduce(image_arr,block_size=(3,3,3),func=np.median).astype(np.uint8)
+        img_nii = nib.Nifti1Image(img_reduced_arr, affine=np.eye(4))
+        nib.nifti1.save(img_nii,'block_reduced_test.nii.gz')
+
         vl0 = vl[0].seg_arr[:,:,10]
-        vl0_ss = vl_ss[0].seg_arr[:,:,12]
+        vl0_ss = vl_ss[0].seg_arr[:,:,8]
         fig, ax = plt.subplots(2,1)
         ax[0].imshow(vl0)
         ax[1].imshow(vl0_ss)
         plt.show()
-
-
-

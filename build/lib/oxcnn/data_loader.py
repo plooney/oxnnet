@@ -48,15 +48,14 @@ class AbstractDataLoader(object):
         return list(zip(*my_list_tups)) 
 
 class StandardDataLoader(AbstractDataLoader):
-    def __init__(self, stride=None, segment_size=None, crop_by=0, rnd_offset=None, aug_pos_samps=False, equal_class_size=True):
+    def __init__(self, stride=None, segment_size=None, crop_by=0, rnd_offset=None, aug_pos_samps=False):
         self.stride = stride
         self.segment_size = segment_size
         self.crop_by = crop_by
         self.rnd_offset = rnd_offset
         self.aug_pos_samps = aug_pos_samps
-        self.equal_class_size = equal_class_size
 
-    def get_batch(self, tup):
+    def get_batch(self, tup, equal_class_size=True):
         print('Reading img {}'.format(tup[0]))
         batchx = []
         batchy = []
@@ -64,12 +63,12 @@ class StandardDataLoader(AbstractDataLoader):
         pos_samps = [(v.seg_arr, vseg.seg_arr) for v, vseg
                      in zip(vimgs, vsegs) if np.any(vseg.seg_arr)]
         if self.aug_pos_samps: 
-            pos_samps = pos_samps  #+ [(np.fliplr(v1),np.fliplr(v2)) for v1,v2 in pos_samps] + [(np.rot90(v1),np.rot90(v2)) for v1,v2 in pos_samps] + [(np.flipud(v1),np.flipud(v2)) for v1,v2 in pos_samps] 
+            pos_samps = pos_samps + [(np.fliplr(v1),np.fliplr(v2)) for v1,v2 in pos_samps] #+ [(np.rot90(v1),np.rot90(v2)) for v1,v2 in pos_samps] #+ [(np.flipud(v1),np.flipud(v2)) for v1,v2 in pos_samps] 
         neg_samp_list = [(v.seg_arr, vseg.seg_arr) for v, vseg
                          in zip(vimgs, vsegs) if not np.any(vseg.seg_arr)]
         pos_vs, pos_vseg = list(zip(*pos_samps)) 
         #print(len(neg_samp_list), len(pos_samps))
-        neg_samps = random.sample(neg_samp_list, min(len(neg_samp_list),len(pos_samps))) if self.equal_class_size else neg_samp_list
+        neg_samps = random.sample(neg_samp_list, min(len(neg_samp_list),len(pos_samps))) if equal_class_size else neg_samp_list
         neg_vs, neg_vseg = [x[0] for x in neg_samps], [x[1] for x in neg_samps]
         batchx += pos_vs
         batchy += pos_vseg
