@@ -57,9 +57,9 @@ class CNN(object):
                 model_eval = module.Model(batch_size, True, tf_record_dir, num_epochs) if validation_tups else None
             model_test = module.Model(batch_size, True)
             inferer = model_test.build_full_inferer()
+            avg_time = 0
             global_step = tf.Variable(0, name='global_step', trainable=False)
             optimizer = tf.train.AdamOptimizer(learning_rate).minimize(model.loss_op, global_step=global_step)
-            avg_time = 0
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth = True
             #with tf.Session(config = config) as sess:
@@ -69,12 +69,14 @@ class CNN(object):
                 summary_writer = tf.summary.FileWriter(save_dir,sess.graph)
                 sess.run(tf.local_variables_initializer())
                 sess.run(tf.global_variables_initializer())
-                saver = tf.train.Saver()
+                saver = tf.train.Saver() 
                 saver_epoch = tf.train.Saver(max_to_keep=None)
                 coord = tf.train.Coordinator()
                 tf.train.start_queue_runners(sess, coord=coord)
                 if model_file:
-                    saver.restore(sess, model_file)
+                    vars_to_restore = model.filter_vars(tf.global_variables())
+                    restore_saver = tf.train.Saver(vars_to_restore) if vars_to_restore else tf.train.Saver()
+                    restore_saver.restore(sess, model_file)
                 try:
                     continue_training = True
                     epoch = previous_epoch = 0

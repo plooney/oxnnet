@@ -135,6 +135,59 @@ class TwoPathwayProcessTup(AbstractProcessTup):
             writer.write(example.SerializeToString())
         writer.close()
 
+
+class DistMapProcessTup(AbstractProcessTup):
+
+    def features_encode(self, label_raw, volume_raw, distmap_raw, rows, cols, depth):
+        features=tf.train.Features(
+            feature={
+                'height': _int64_feature(rows),
+                'width': _int64_feature(cols),
+                'depth': _int64_feature(depth),
+                'volume_seg': _bytes_feature(label_raw),
+                'volume_raw': _floats_feature(volume_raw),
+                'distmap_raw': _bytes_feature(distmap_raw)
+            }
+        )
+        return features
+
+    def features_decode(self, serialized_example):
+        example = tf.parse_single_example(
+            serialized_example,
+            features={
+                'volume_raw': tf.FixedLenFeature([np.prod(self.data_loader.segment_size)], tf.float32),
+                'distmap_raw': tf.FixedLenFeature([], tf.string),
+                'volume_seg': tf.FixedLenFeature([], tf.string),
+            }
+        )
+        volume = example['volume_raw']
+        volume.set_shape([np.prod(self.data_loader.segment_size)])
+
+        distmap = tf.decode_raw(example['distmap_raw'], tf.uint8)
+        distmap.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
+
+        label = tf.decode_raw(example['volume_seg'], tf.uint8)
+        label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
+        return volume, label, distmap 
+
+    def convert_to(self,volumes, labels, distmap, name):
+        rows = volumes.shape[1]
+        cols = volumes.shape[2]
+        depth = volumes.shape[3]
+
+        filename = os.path.join(self.output_dir, name + '.tfrecords')
+        print('Writing', filename)
+        writer = tf.python_io.TFRecordWriter(filename)
+        for index in range(volumes.shape[0]):
+            volume_raw = volumes[index].ravel()
+            distmap_raw = distmap[index].tostring()
+            label_raw = labels[index].tostring()
+            example = tf.train.Example(
+                features=self.features_encode(label_raw, volume_raw, distmap_raw, rows, cols, depth)
+            )
+            writer.write(example.SerializeToString())
+        writer.close()
+
 class RecordWriter(object):
     def __init__(self,data_loader,ProcessTupClass, num_of_threads=4):
         self.data_loader = data_loader

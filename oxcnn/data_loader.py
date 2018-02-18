@@ -48,13 +48,14 @@ class AbstractDataLoader(object):
         return list(zip(*my_list_tups)) 
 
 class StandardDataLoader(AbstractDataLoader):
-    def __init__(self, stride=None, segment_size=None, crop_by=0, rnd_offset=None, aug_pos_samps=False, equal_class_size=True):
+    def __init__(self, stride=None, segment_size=None, crop_by=0, rnd_offset=None, aug_pos_samps=False, equal_class_size=True, neg_samps=True):
         self.stride = stride
         self.segment_size = segment_size
         self.crop_by = crop_by
         self.rnd_offset = rnd_offset
         self.aug_pos_samps = aug_pos_samps
         self.equal_class_size = equal_class_size
+        self.neg_samps = neg_samps
 
     def get_batch(self, tup):
         print('Reading img {}'.format(tup[0]))
@@ -64,7 +65,7 @@ class StandardDataLoader(AbstractDataLoader):
         pos_samps = [(v.seg_arr, vseg.seg_arr) for v, vseg
                      in zip(vimgs, vsegs) if np.any(vseg.seg_arr)]
         if self.aug_pos_samps: 
-            pos_samps = pos_samps  #+ [(np.fliplr(v1),np.fliplr(v2)) for v1,v2 in pos_samps] + [(np.rot90(v1),np.rot90(v2)) for v1,v2 in pos_samps] + [(np.flipud(v1),np.flipud(v2)) for v1,v2 in pos_samps] 
+            pos_samps = pos_samps + [(np.fliplr(v1),np.fliplr(v2)) for v1,v2 in pos_samps] + [(np.rot90(v1),np.rot90(v2)) for v1,v2 in pos_samps] + [(np.rot90(np.rot90(v1)),np.rot90(np.rot90(v2))) for v1,v2 in pos_samps] + [(np.rot90(np.rot90(np.rot90(v1))),np.rot90(np.rot90(np.rot90(v2)))) for v1,v2 in pos_samps] #+ [(np.flipud(v1),np.flipud(v2)) for v1,v2 in pos_samps] 
         neg_samp_list = [(v.seg_arr, vseg.seg_arr) for v, vseg
                          in zip(vimgs, vsegs) if not np.any(vseg.seg_arr)]
         pos_vs, pos_vseg = list(zip(*pos_samps)) 
@@ -73,8 +74,9 @@ class StandardDataLoader(AbstractDataLoader):
         neg_vs, neg_vseg = [x[0] for x in neg_samps], [x[1] for x in neg_samps]
         batchx += pos_vs
         batchy += pos_vseg
-        batchx += neg_vs
-        batchy += neg_vseg
+        if self.neg_samps:
+            batchx += neg_vs
+            batchy += neg_vseg
         print('Done reading img {} with number of segments {} of size {} MBs'.format(tup[0],len(batchx),(sum([x.nbytes for x in batchx]) + sum([x.nbytes for x in batchy]) )/10**6))
         return np.array(batchx), np.array(batchy), (len(pos_vs), len(neg_vs))
 
@@ -95,11 +97,12 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         self.stride = stride
         self.segment_size = segment_size
         self.crop_by = crop_by
+        self.rnd_offset = rnd_offset
 
     def read_data_dir(self,data_dir,ttv_list):
         tups = []
         for d in os.listdir(data_dir):
-            f = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' not in x and 'distmap' not in x][0]
+            f = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' not in x and 'distmap' not in x and os.path.isfile(os.path.join(data_dir,d,x))][0]
             m = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' in x and 'thresh' not in x][0]
             s = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' in x][0]
             dm = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'distmap' in x][0]
@@ -115,7 +118,7 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
             new_tups = []
             for tup in tups:
                 dname = os.path.dirname(tup[0])
-                dm = [os.path.join(dname,x) for x in os.listdir(os.path.join(dname)) if 'distmap' not in x][0]
+                dm = [os.path.join(dname,x) for x in os.listdir(os.path.join(dname)) if 'distmap' in x][0]
                 new_tups.append( tup + (dm,) )
             return new_tups
         self.train_tups = append_to_tups(self.train_tups)
@@ -143,7 +146,7 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         batchy_dm += pos_vdm
         batchy_dm += neg_vdm
         print('Done reading img {} with number of segments {} of size {} MBs'.format(tup[0],len(batchx),(sum([x.nbytes for x in batchx]) + sum([x.nbytes for x in batchy]) )/10**6))
-        return np.array(batchx), np.array(batchy), np.array(batchy_dm)
+        return np.array(batchx), np.array(batchy), np.array(batchy_dm), (len(pos_vs), len(neg_vs))
 
     def vol_s(self, tup, crop_by=0):
         img_file_path, mask_file_path, seg_file_path, dm_file_path = tup
@@ -151,13 +154,13 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         image_arr =  nib.load(img_file_path).get_data()
         mask_arr =  nib.load(mask_file_path).get_data()
         seg_arr =  nib.load(seg_file_path).get_data().astype(np.uint8)
-        dm_arr =  nib.load(seg_file_path).get_data().astype(np.float32)
-        dm_arr = rescale_intensity(dm_arr, in_range='image', out_range=(0,1))
+        dm_arr =  nib.load(dm_file_path).get_data().astype(np.uint8)
+        #dm_arr = rescale_intensity(dm_arr, in_range='image', out_range=(0,1))
         image_arr = mask_arr*image_arr + (1-mask_arr)*(image_arr.max())
-        vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size, crop_by=crop_by, add_rnd_offset=False)
+        vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size, crop_by=crop_by, rnd_offset=self.rnd_offset)
         tuples = [(np.array(vol.seg_arr.shape)-2*crop_by,vol.start_voxel+crop_by) for vol in vol_list]
         vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
-        vol_list_dms = img_handler.image_vols_to_vols(seg_arr, tuples)
+        vol_list_dms = img_handler.image_vols_to_vols(dm_arr, tuples)
         return self.exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_dms)
 
 class TwoPathwayDataLoader(AbstractDataLoader):
