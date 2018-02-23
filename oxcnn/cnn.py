@@ -16,23 +16,17 @@ import models
 class CNN(object):
 
     def write_csv(self,fname, my_dict, mode='w', header=True):
-        #print(my_dict)
         pd.DataFrame.from_dict(my_dict).to_csv(fname, mode=mode, header=header)
-                     #columns=list(my_dict.keys())
-                    #).to_csv(fname, mode=mode, header=header)
 
     def get_testdata(self, meta_data_file):
         with open(meta_data_file,'r') as f: d = json.load(f)
         return d['test_tups']
 
-    def train(self, tf_record_dir, save_dir, test_data, module, num_epochs, batch_size, num_save_every, model_file=None, early_stop=False, full_eval_every = 1, learning_rate=1e-3):
+    def train(self, tf_record_dir, save_dir, module, num_epochs, batch_size, num_save_every, model_file=None, early_stop=False, full_eval_every = 1, learning_rate=1e-3):
         train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [], 'train_mse': [], 'val_loss': [], 'val_dice': [], 'val_mse': []}
         meta_data_filepath = os.path.join(tf_record_dir,'meta_data.txt')
         with open(meta_data_filepath,'r') as f:
             meta_data = json.load(f)
-        #train_classes = meta_data['train_classes']
-        #weighting = np.array([sum(x) for x in zip(*list(train_classes.values()))])
-        #weighting = 1./(weighting/weighting.sum())
         num_examples = sum([x[1] for x in meta_data['train_examples'].items()])
         num_batches_per_epoch = num_examples//batch_size
         num_batches = math.ceil(num_epochs*num_batches_per_epoch) if num_epochs else 0
@@ -62,7 +56,6 @@ class CNN(object):
             optimizer = tf.train.AdamOptimizer(learning_rate).minimize(model.loss_op, global_step=global_step)
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth = True
-            #with tf.Session(config = config) as sess:
             with tf.Session(config=config) as sess:
                 merged = s.summarize_variables()
                 merged = tf.summary.merge_all()
@@ -93,7 +86,15 @@ class CNN(object):
                         if num_save_every and cur_step % num_save_every == 0:
                             tflearn.is_training(False)
                             start = time.time()
-                            train_loss, train_dice, val_loss, val_dice, summaries, train_mse, val_mse = sess.run([model.loss_op, model.dice_op, model_eval.loss_op, model_eval.dice_op, merged, model.mse, model_eval.mse, optimizer] + model_eval.metric_update_ops + model.metric_update_ops)[0:7]
+                            train_loss, train_dice, val_loss, val_dice, summaries, train_mse, val_mse = sess.run([model.loss_op, 
+                                                                                                                  model.dice_op, 
+                                                                                                                  model_eval.loss_op, 
+                                                                                                                  model_eval.dice_op, 
+                                                                                                                  merged, model.mse, 
+                                                                                                                  model_eval.mse, 
+                                                                                                                  optimizer] + 
+                                                                                                                 model_eval.metric_update_ops + 
+                                                                                                                 model.metric_update_ops)[0:7]
                             summary_writer.add_summary(summaries, cur_step)
                             message_string = ' val_loss: {:.3f}, val_dice: {:.3f}, mse: {:.5f}'.format(val_loss,val_dice, val_mse)
                             non_zero_losses = [x for x in  train_loss_iterations['val_loss'] if x is not None]

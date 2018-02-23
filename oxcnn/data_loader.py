@@ -10,24 +10,28 @@ from skimage.exposure import rescale_intensity
 
 class AbstractDataLoader(object):
     def read_metadata(self, filename):
-        with open(filename,'r') as f:
+        with open(filename, 'r') as f:
             d = json.load(f)
         self.train_tups = d['train_tups']
         self.validation_tups = d['validation_tups']
         self.test_tups = d['test_tups']
 
-    def read_deepmedic_dir(self,deep_medic_dir):
+    def read_deepmedic_dir(self, deep_medic_dir):
         dm_cfg_reader = DeepMedicConfigReader(deep_medic_dir)
         self.train_tups = dm_cfg_reader.read_train_tups()
         self.validation_tups = dm_cfg_reader.read_validation_tups()
         self.test_tups = dm_cfg_reader.read_test_tups()
 
-    def read_data_dir(self,data_dir,ttv_list):
+    def read_data_dir(self, data_dir, ttv_list):
         tups = []
         for d in os.listdir(data_dir):
-            f = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' not in x and 'distmap' not in x and os.path.isfile(os.path.join(data_dir,d,x))][0]
-            m = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' in x and 'thresh' not in x][0]
-            s = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d)) if 'mask' not in x and 'thresh' in x][0]
+            f = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                 if 'mask' not in x and 'thresh' not in x and
+                 'distmap' not in x and os.path.isfile(os.path.join(data_dir, d, x))][0]
+            m = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d))
+                 if 'mask' in x and 'thresh' not in x][0]
+            s = [os.path.join(data_dir,d,x) for x in os.listdir(os.path.join(data_dir,d))
+                 if 'mask' not in x and 'thresh' in x][0]
             tups.append((f,m,s))
         random.shuffle(tups)
         self.train_tups = tups[0:ttv_list[0]]
