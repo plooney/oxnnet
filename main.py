@@ -10,7 +10,6 @@ import time
 from datetime import datetime, timedelta
 import pandas as pd
 import importlib
-import models
 from oxcnn.cnn import CNN
 
 FLAGS = None
@@ -21,7 +20,6 @@ def train(FLAGS):
     cnn.train(
         FLAGS.tfr_dir, 
         FLAGS.save_dir, 
-        FLAGS.test_data, 
         module,
         FLAGS.num_epochs,
         FLAGS.batch_size,

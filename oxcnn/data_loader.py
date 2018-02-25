@@ -140,7 +140,7 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
     """Class to take an image, a distmap and return a patch of the image, a patch of the distmap
     cropped and a groundtruth patch cropped."""
     def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None):
-        super(StandardDataLoaderDistMap, self).__init__()
+        super(StandardDataLoaderDistMap, self).__init__(stride, segment_size)
         self.stride = stride
         self.segment_size = segment_size
         self.crop_by = crop_by
@@ -224,7 +224,7 @@ class TwoPathwayDataLoader(AbstractDataLoader):
     a patch of downsampled image
     and a groundtruth patch cropped."""
     def __init__(self, stride, segment_size, segment_size_ss, ss_factor=3, crop_by=0):
-        super(TwoPathwayDataLoader, self).__init__()
+        super(TwoPathwayDataLoader, self).__init__(stride, segment_size)
         self.stride = stride
         self.segment_size = segment_size
         self.segment_size_ss = segment_size_ss

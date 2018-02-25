@@ -9,19 +9,19 @@
 
 **Create a set of test cases** 
 
-`python3 -m oxcnn.test.utils ~/Desktop/TestVolumes`
+`python3 -m tests.utils ~/Desktop/TestVolumes`
 
 **Write out the TensorFlowRecords**
 
-`python3 main.py --model models.deepmedic write --save_dir ~/Desktop/TestRect-tfr --data_dir ~/Desktop/TestVolumes/`
+`python3 main.py --model oxcnn.models.simplenet write --save_dir ~/Desktop/TestRect-tfr --data_dir ~/Desktop/TestVolumes/`
 
 **Train the model**
 
-`python3 main.py --model models.deepmedic train --tfr_dir ~/Desktop/TestRect-tfr --save_dir ~/Desktop/TestRect-out --test_data ~/Desktop/TestRect-tfr/meta_data.txt --num_epochs 10 --batch_size 10`
+`python3 main.py --model oxcnn.models.simplenet train --tfr_dir ~/Desktop/TestRect-tfr --save_dir ~/Desktop/TestRect-out --num_epochs 10 --batch_size 100`
 
 **Test the model**
 
-`python3 main.py --model models.deepmedic test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect-tfr/meta_data.txt --model_file /home/padraig/Desktop/TestRect-out/epoch_model.ckpt-2243.meta --batch_size 10`
+`python3 main.py --model oxcnn.model.simplenet test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect-tfr/meta_data.txt --model_file <model_file_name> --batch_size 100`
 
 **Dependencies**
 
