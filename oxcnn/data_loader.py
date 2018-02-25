@@ -1,3 +1,5 @@
+"""Module containing:
+    Dataloader class enables the conversion of a tuple of filepaths into a list of patches."""
 import random
 import os
 import json
@@ -7,36 +9,58 @@ import nibabel as nib
 from oxcnn.volume_handler import ImageHandler
 from oxcnn.deepmedic_config_reader import DeepMedicConfigReader
 
+
+def exclude_windows_outside_mask(mask_arr, *vol_segs):
+    """Removes all vols that don't overlap the mask"""
+    mins_inds = lambda inds: np.array([x.min() for x in inds])
+    maxs_inds = lambda inds: np.array([x.max() for x in inds])+1
+    indices = lambda inds: tuple([slice(m1, m2) for m1, m2 in
+                                  zip(mins_inds(inds), maxs_inds(inds))])
+    my_list_tups = [vs for vs in zip(*vol_segs) if np.any(mask_arr[indices(vs[1].inds)])]
+    return list(zip(*my_list_tups))
+
 class AbstractDataLoader(object):
-    def __init__(self):
+    """Abstract class take images and return patches"""
+    def __init__(self, stride, segment_size):
         self.train_tups = []
         self.validation_tups = []
         self.test_tups = []
+        self.segment_size = segment_size
+        self.stride = stride
 
     def read_metadata(self, filename):
-        """Reads a metadata file containing information about the records dir"""
+        """Read a metadata file containing information about the records dir"""
         with open(filename, 'r') as f:
-            d = json.load(f)
-        self.train_tups = d['train_tups']
-        self.validation_tups = d['validation_tups']
-        self.test_tups = d['test_tups']
+            meta_dict = json.load(f)
+        self.train_tups = meta_dict['train_tups']
+        self.validation_tups = meta_dict['validation_tups']
+        self.test_tups = meta_dict['test_tups']
 
     def read_deepmedic_dir(self, deep_medic_dir):
-        """Reads a DeepMedic config file to get the filepaths for the images"""
+        """Read a DeepMedic config file to get the filepaths for the images"""
         dm_cfg_reader = DeepMedicConfigReader(deep_medic_dir)
         self.train_tups = dm_cfg_reader.read_train_tups()
         self.validation_tups = dm_cfg_reader.read_validation_tups()
         self.test_tups = dm_cfg_reader.read_test_tups()
 
     def read_data_dir(self, data_dir, ttv_list):
+        """Read a directory of images and parition randomly into
+        train, test, and validation cases
+        Arguments:
+            ttv_list: list of three integers for the number of cases [train, test, validate]
+        """
         tups = []
-        for d in os.listdir(data_dir):
-            f = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+        for dir_name in os.listdir(data_dir):
+            full_dir = os.path.join(data_dir, dir_name)
+            f = [os.path.join(full_dir, x)
+                 for x in os.listdir(full_dir)
                  if 'mask' not in x and 'thresh' not in x and
-                 'distmap' not in x and os.path.isfile(os.path.join(data_dir, d, x))][0]
-            m = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                 'distmap' not in x and
+                 os.path.isfile(os.path.join(full_dir, x))][0]
+            m = [os.path.join(full_dir, x)
+                 for x in os.listdir(full_dir)
                  if 'mask' in x and 'thresh' not in x][0]
-            s = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+            s = [os.path.join(full_dir, x) for x in os.listdir(full_dir)
                  if 'mask' not in x and 'thresh' in x][0]
             tups.append((f, m, s))
         random.shuffle(tups)
@@ -45,25 +69,21 @@ class AbstractDataLoader(object):
         self.test_tups = tups[ttv_list[0]+ttv_list[1]:ttv_list[0]+ttv_list[1]+ttv_list[2]]
 
     def get_batch(self, tup):
+        """Given a tuple of filepaths return a list of tuples of patches.
+        Filtering and augmentation is applied"""
         raise NotImplementedError("Should have implemented get_batch")
 
     def vol_s(self, tup, crop_by=0):
+        """Given a tuple of filepaths return a list of tuples of patches"""
         raise NotImplementedError("Should have implemented vol_s")
 
-    def exclude_windows_outside_mask(self, mask_arr, *vol_segs):
-        mins_inds = lambda inds: np.array([x.min() for x in inds])
-        maxs_inds = lambda inds: np.array([x.max() for x in inds])+1
-        indices = lambda inds: tuple([slice(m1, m2) for m1, m2 in
-                                      zip(mins_inds(inds), maxs_inds(inds))])
-        my_list_tups = [vs for vs in zip(*vol_segs) if np.any(mask_arr[indices(vs[1].inds)])]
-        return list(zip(*my_list_tups))
 
 class StandardDataLoader(AbstractDataLoader):
-    def __init__(self, stride=None, segment_size=None, crop_by=0, rnd_offset=None,
+    """Class to take a single images and return a patch of the image and
+    a groundtruth patch. Output can be cropped by desired amount"""
+    def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None,
                  aug_pos_samps=False, equal_class_size=True, neg_samps=True):
-        super(StandardDataLoader, self).__init__()
-        self.stride = stride
-        self.segment_size = segment_size
+        super(StandardDataLoader, self).__init__(stride, segment_size)
         self.crop_by = crop_by
         self.rnd_offset = rnd_offset
         self.aug_pos_samps = aug_pos_samps
@@ -114,9 +134,11 @@ class StandardDataLoader(AbstractDataLoader):
         tuples = [(np.array(vol.seg_arr.shape)-2*crop_by, vol.start_voxel+crop_by)
                   for vol in vol_list]
         vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
-        return self.exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs)
+        return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs)
 
 class StandardDataLoaderDistMap(AbstractDataLoader):
+    """Class to take an image, a distmap and return a patch of the image, a patch of the distmap
+    cropped and a groundtruth patch cropped."""
     def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None):
         super(StandardDataLoaderDistMap, self).__init__()
         self.stride = stride
@@ -195,9 +217,12 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
                   for vol in vol_list]
         vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
         vol_list_dms = img_handler.image_vols_to_vols(dm_arr, tuples)
-        return self.exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_dms)
+        return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_dms)
 
 class TwoPathwayDataLoader(AbstractDataLoader):
+    """Class to take an image, return a patch of the image,
+    a patch of downsampled image
+    and a groundtruth patch cropped."""
     def __init__(self, stride, segment_size, segment_size_ss, ss_factor=3, crop_by=0):
         super(TwoPathwayDataLoader, self).__init__()
         self.stride = stride
@@ -237,8 +262,10 @@ class TwoPathwayDataLoader(AbstractDataLoader):
         img_handler = ImageHandler()
         image_arr = nib.load(img_file_path).get_data()
         mask_arr = nib.load(mask_file_path).get_data()
-        block_image_arr = block_reduce(image_arr, block_size=(3, 3, 3), func=np.median).astype(np.uint8)
-        vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size, crop_by=crop_by)
+        block_image_arr = block_reduce(image_arr, block_size=(3, 3, 3),
+                                       func=np.median).astype(np.uint8)
+        vol_list = img_handler.image_to_vols(image_arr, self.stride,
+                                             self.segment_size, crop_by=crop_by)
         tuples = [(np.array(vol.seg_arr.shape) - 2*crop_by, vol.start_voxel +
                    crop_by) for vol in vol_list]
         seg_arr = nib.load(seg_file_path).get_data().astype(np.uint8)
@@ -248,4 +275,4 @@ class TwoPathwayDataLoader(AbstractDataLoader):
                      (self.segment_size-self.ss_factor*self.segment_size_ss)//2)//self.ss_factor))
                   for vol in vol_list]
         vol_list_subsampled = img_handler.image_vols_to_vols(block_image_arr, tuples)
-        return self.exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_subsampled)
+        return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_subsampled)
