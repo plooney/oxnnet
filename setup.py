@@ -11,14 +11,14 @@ def read(fname):
 setup(
     name = "oxcnn",
     version = "0.0.4",
-    author = "Andrew Carter",
+    author = "Padraig Looney",
     author_email = "padraig.looney@gmail.com",
     description = (" "
                                    "to the cheese shop a5 pypi.org."),
-    license = "BSD",
+    license = "LGPL",
     keywords = "example documentation tutorial",
     url = "http://packages.python.org/an_example_pypi_project",
-    packages=['oxcnn', 'tests'],
+    packages=['oxcnn', 'oxcnn.model', 'tests'],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",
