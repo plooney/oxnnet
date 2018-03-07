@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timedelta
 import pandas as pd
 import importlib
-from oxcnn.cnn import CNN
+from oxnnet.cnn import CNN
 
 FLAGS = None
 

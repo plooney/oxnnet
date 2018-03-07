@@ -46,7 +46,7 @@ class AbstractDataLoader(object):
         """Read a directory of images and parition randomly into
         train, test, and validation cases
         Arguments:
-            ttv_list: list of three integers for the number of cases [train, test, validate]
+        ttv_list: list of three integers for the number of cases [train, test, validate]
         """
         tups = []
         for dir_name in os.listdir(data_dir):
