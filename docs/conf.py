@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# oxcnn documentation build configuration file, created by
+# oxnnet documentation build configuration file, created by
 # sphinx-quickstart on Sun Feb 25 13:40:05 2018.
 #
 # This file is execfile()d with the current directory set to its
@@ -15,7 +15,7 @@
 
 import sys
 import os
-import oxcnn
+import oxnnet
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -52,7 +52,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'oxcnn'
+project = 'oxnnet'
 copyright = '2018, Padraig Looney'
 author = 'Padraig Looney'
 
@@ -128,7 +128,7 @@ html_theme = 'sphinx_rtd_theme'
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-#html_title = 'oxcnn v0.1'
+#html_title = 'oxnnet v0.1'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
@@ -210,7 +210,7 @@ html_static_path = ['_static']
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'oxcnndoc'
+htmlhelp_basename = 'oxnnetdoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -232,7 +232,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'oxcnn.tex', 'oxcnn Documentation',
+    (master_doc, 'oxnnet.tex', 'oxnnet Documentation',
      'Padraig Looney', 'manual'),
 ]
 
@@ -262,7 +262,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'oxcnn', 'oxcnn Documentation',
+    (master_doc, 'oxnnet', 'oxnnet Documentation',
      [author], 1)
 ]
 
@@ -276,8 +276,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'oxcnn', 'oxcnn Documentation',
-     author, 'oxcnn', 'One line description of project.',
+    (master_doc, 'oxnnet', 'oxnnet Documentation',
+     author, 'oxnnet', 'One line description of project.',
      'Miscellaneous'),
 ]
 

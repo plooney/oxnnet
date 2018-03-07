@@ -9,7 +9,6 @@ import nibabel as nib
 from oxnnet.volume_handler import ImageHandler
 from oxnnet.deepmedic_config_reader import DeepMedicConfigReader
 
-
 def exclude_windows_outside_mask(mask_arr, *vol_segs):
     """Removes all vols that don't overlap the mask"""
     mins_inds = lambda inds: np.array([x.min() for x in inds])
