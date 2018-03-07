@@ -9,7 +9,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
-    name = "oxcnn",
+    name = "oxnnet",
     version = "0.0.4",
     author = "Padraig Looney",
     author_email = "padraig.looney@gmail.com",
@@ -18,11 +18,11 @@ setup(
     license = "LGPL",
     keywords = "example documentation tutorial",
     url = "http://packages.python.org/an_example_pypi_project",
-    packages=['oxcnn', 'oxcnn.model', 'tests'],
+    packages=['oxnnet', 'oxnnet.model', 'tests'],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: LGPL version 3",
     ],
 )
