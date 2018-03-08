@@ -14,6 +14,11 @@ def write_csv(fname, my_dict, mode='w', header=True):
     """Writes (appends or with header) csv of validation metrics"""
     pd.DataFrame.from_dict(my_dict).to_csv(fname, mode=mode, header=header)
     
+def get_testdata(meta_data_file):
+    """Reads the image files for testing from the metadata file in the records dir."""
+    with open(meta_data_file, 'r') as f: d = json.load(f)
+    return d['test_tups']
+
 class CNN(object):
     """Class to perform writing of records, training, testing and feature writing"""
     def __init__(self, module):

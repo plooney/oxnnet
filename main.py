@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timedelta
 import pandas as pd
 import importlib
-from oxnnet.cnn import CNN
+from oxnnet.cnn import CNN, get_testdata
 
 FLAGS = None
 
@@ -31,7 +31,7 @@ def test(FLAGS):
     cnn = CNN(module)
     cnn.test(
         FLAGS.save_dir, 
-        cnn.get_testdata(FLAGS.test_data_file), 
+        get_testdata(FLAGS.test_data_file), 
         FLAGS.model_file, 
         FLAGS.batch_size
     )
