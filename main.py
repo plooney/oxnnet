@@ -15,12 +15,11 @@ from oxnnet.cnn import CNN
 FLAGS = None
 
 def train(FLAGS):
-    cnn = CNN()
     module = importlib.import_module(FLAGS.model) 
+    cnn = CNN(module)
     cnn.train(
         FLAGS.tfr_dir, 
         FLAGS.save_dir, 
-        module,
         FLAGS.num_epochs,
         FLAGS.batch_size,
         FLAGS.num_save_every,
@@ -28,24 +27,22 @@ def train(FLAGS):
     )
 
 def test(FLAGS):
-    cnn = CNN()
     module = importlib.import_module(FLAGS.model) 
+    cnn = CNN(module)
     cnn.test(
         FLAGS.save_dir, 
         cnn.get_testdata(FLAGS.test_data_file), 
         FLAGS.model_file, 
-        module,
         FLAGS.batch_size
     )
 
 def write(FLAGS):
-    cnn = CNN()
     module = importlib.import_module(FLAGS.model) 
+    cnn = CNN(module)
     cnn.write_records(
         FLAGS.save_dir, 
         FLAGS.data_dir, 
-        FLAGS.dir_type, 
-        module
+        FLAGS.dir_type
     )
 
 if __name__ == '__main__':
