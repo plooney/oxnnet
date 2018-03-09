@@ -1,10 +1,11 @@
+"""This modules contains classes to enable writing and reading tensorflow records"""
 import os
-import numpy as np
-import tensorflow as tf
 import json
 from multiprocessing import Pool
 import glob
 import abc
+import numpy as np
+import tensorflow as tf
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -16,11 +17,11 @@ def _floats_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 class AbstractProcessTup(object, metaclass=abc.ABCMeta):
-    #@abc.abstractmethod    
-    #def __str__(self):
-    #    raise NotImplementedError('users must define __str__ to use this base class')
+    @abc.abstractmethod
+    def convert_to(self, *args):
+        raise NotImplementedError('users must define conver_to to use this base class')
 
-    def __init__(self, data_loader, prefix=None,output_dir=None):
+    def __init__(self, data_loader, prefix=None, output_dir=None):
         self.data_loader = data_loader
         self.prefix = prefix
         self.output_dir = output_dir
@@ -29,12 +30,12 @@ class AbstractProcessTup(object, metaclass=abc.ABCMeta):
         name = os.path.basename(tup[0].split('.')[0])
         vals = self.data_loader.get_batch(tup)
         self.convert_to(*vals[:-1], self.prefix + '_' + name)
-        return (name, len(vals[0])), (name, vals[-1]) 
+        return (name, len(vals[0])), (name, vals[-1])
 
 class StandardProcessTup(AbstractProcessTup):
 
     def features_encode(self, label_raw, volume_raw, rows, cols, depth):
-        features=tf.train.Features(
+        features = tf.train.Features(
             feature={
                 'height': _int64_feature(rows),
                 'width': _int64_feature(cols),
@@ -60,7 +61,8 @@ class StandardProcessTup(AbstractProcessTup):
         label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
         return volume, label
 
-    def convert_to(self,volumes, labels, name):
+    def convert_to(self, *vals):
+        volumes, labels, name = vals
         rows = volumes.shape[1]
         cols = volumes.shape[2]
         depth = volumes.shape[3]
@@ -80,7 +82,7 @@ class StandardProcessTup(AbstractProcessTup):
 class TwoPathwayProcessTup(AbstractProcessTup):
 
     def features_encode(self, label_raw, volume_raw, volume_raw_ss, rows, cols, depth, rows_ss, cols_ss, depth_ss):
-        features=tf.train.Features(
+        features = tf.train.Features(
             feature={
                 'height': _int64_feature(rows),
                 'width': _int64_feature(cols),
@@ -114,7 +116,9 @@ class TwoPathwayProcessTup(AbstractProcessTup):
         label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
         return volume, label, volume_ss
 
-    def convert_to(self,volumes, labels, volumes_ss, name):
+    #def convert_to(self, volumes, labels, volumes_ss, name):
+    def convert_to(self, *vals):
+        volumes, labels, volumes_ss, name = vals
         rows = volumes.shape[1]
         cols = volumes.shape[2]
         depth = volumes.shape[3]
@@ -139,7 +143,7 @@ class TwoPathwayProcessTup(AbstractProcessTup):
 class DistMapProcessTup(AbstractProcessTup):
 
     def features_encode(self, label_raw, volume_raw, distmap_raw, rows, cols, depth):
-        features=tf.train.Features(
+        features = tf.train.Features(
             feature={
                 'height': _int64_feature(rows),
                 'width': _int64_feature(cols),
@@ -168,9 +172,10 @@ class DistMapProcessTup(AbstractProcessTup):
 
         label = tf.decode_raw(example['volume_seg'], tf.uint8)
         label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
-        return volume, label, distmap 
+        return volume, label, distmap
 
-    def convert_to(self,volumes, labels, distmap, name):
+    def convert_to(self, *vals):
+        volumes, labels, distmap, name = vals
         rows = volumes.shape[1]
         cols = volumes.shape[2]
         depth = volumes.shape[3]
@@ -189,35 +194,43 @@ class DistMapProcessTup(AbstractProcessTup):
         writer.close()
 
 class RecordWriter(object):
-    def __init__(self,data_loader,ProcessTupClass, num_of_threads=4):
+    def __init__(self, data_loader, ProcessTupClass, num_of_threads=4):
         self.data_loader = data_loader
         self.ProcessTupClass = ProcessTupClass
         self.num_of_threads = num_of_threads
 
-    def write_records(self,output_dir):
-
+    def write_records(self, output_dir):
         with Pool(self.num_of_threads) as p:
-            pmap_results = list(zip(*p.map(self.ProcessTupClass(self.data_loader,'train',output_dir),self.data_loader.train_tups)))
+            pmap_results = list(
+                zip(
+                    *p.map(self.ProcessTupClass(self.data_loader, 'train', output_dir),
+                           self.data_loader.train_tups)
+                )
+            )
             no_train_examples_dict = dict(pmap_results[0])
             no_train_class_dict = dict(pmap_results[1])
-
         no_validation_examples_dict = {}
 
         if self.data_loader.validation_tups:
             with Pool(self.num_of_threads) as p:
-                pmap_results = list(zip(*p.map(self.ProcessTupClass(self.data_loader,'validation',output_dir),self.data_loader.validation_tups)))
+                pmap_results = list(
+                    zip(
+                        *p.map(
+                            self.ProcessTupClass(self.data_loader, 'validation', output_dir),
+                            self.data_loader.validation_tups)
+                    )
+                )
                 no_validation_examples_dict = dict(pmap_results[0])
-
-        data={'train_examples':no_train_examples_dict,
-              'train_classes':no_train_class_dict,
-              'validation_examples':no_validation_examples_dict,
-              'stride':self.data_loader.stride.tolist(),
-              'segment_size_in':self.data_loader.segment_size.tolist(),
-              'segment_size_out':(self.data_loader.segment_size-self.data_loader.crop_by).tolist(),
-              'train_tups':self.data_loader.train_tups,
-              'validation_tups':self.data_loader.validation_tups,
-              'test_tups':self.data_loader.test_tups
-             }
+        data = {'train_examples':no_train_examples_dict,
+                'train_classes':no_train_class_dict,
+                'validation_examples':no_validation_examples_dict,
+                'stride':self.data_loader.stride.tolist(),
+                'segment_size_in':self.data_loader.segment_size.tolist(),
+                'segment_size_out':(self.data_loader.segment_size-self.data_loader.crop_by).tolist(),
+                'train_tups':self.data_loader.train_tups,
+                'validation_tups':self.data_loader.validation_tups,
+                'test_tups':self.data_loader.test_tups
+               }
         with open(os.path.join(output_dir, 'meta_data.txt'), 'w') as outfile:
             json.dump(dict(data), outfile)
 
@@ -225,18 +238,19 @@ class RecordReader(object):
     def __init__(self, process_tup):
         self.ptc = process_tup
 
-    def read_and_decode(self,filename_queue):
+    def read_and_decode(self, filename_queue):
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(filename_queue)
         return self.ptc.features_decode(serialized_example)
 
-    def input_pipeline(self,train, batch_size, num_epochs, record_dir):
-        read_threads = 20 
-        if not num_epochs: num_epochs = None
+    def input_pipeline(self, train, batch_size, num_epochs, record_dir):
+        read_threads = 20
+        if not num_epochs:
+            num_epochs = None
         search_string = os.path.join(record_dir,
                                      'train' if train else 'validation')
         search_string += '*'
-        filenames = glob.glob(search_string) 
+        filenames = glob.glob(search_string)
         filename_queue = tf.train.string_input_producer(
             filenames, num_epochs=num_epochs, shuffle=True)
         example_list = [self.read_and_decode(filename_queue)
