@@ -17,7 +17,7 @@
 
 **Train the model**
 
-`python3 main.py --model oxnnet.models.simplenet train --tfr_dir ~/Desktop/TestRect-tfr --save_dir ~/Desktop/TestRect-out --num_epochs 10 --batch_size 100`
+`python3 main.py --model oxnnet.model.simplenet train --tfr_dir ~/Desktop/TestRect-tfr --save_dir ~/Desktop/TestRect-out --num_epochs 10 --batch_size 100`
 
 **Test the model**
 
