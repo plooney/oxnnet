@@ -53,9 +53,9 @@ class Model(AbstractModel):
         with tf.variable_scope("inference") as scope:
             if reuse:
                 scope.reuse_variables()
-                logits = self.build_net(X, reuse=True, scope=scope)
+                logits = self.build_net(X, reuse=True)
             else:
-                logits = self.build_net(X, reuse=False, scope=scope)
+                logits = self.build_net(X, reuse=False)
             with tf.variable_scope("pred"):
                 softmax_logits = tf.nn.softmax(logits)
                 self.pred = tf.cast(tf.argmax(softmax_logits, axis=4), tf.float32)
