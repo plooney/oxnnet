@@ -21,7 +21,7 @@
 
 **Test the model**
 
-`python3 main.py --model oxnnet.model.simplenet test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect-tfr/meta_data.txt --model_file <model_file_name> --batch_size 100`
+`python3 main.py --model oxnnet.model.simplenet test --save_dir ~/Desktop/TestRect-out/test --test_data_file ~/Desktop/TestRect-tfr/meta_data.txt --model_file ~/Desktop/TestRect-out/epoch_model.ckpt-<iteration_no> --batch_size 100`
 
 **Dependencies**
 

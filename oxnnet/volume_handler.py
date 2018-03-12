@@ -57,7 +57,7 @@ class ReadArray(object):
 
 class ImageHandler(object):
     def image_to_vols(self, image_arr, stride, window_shape, mask_arr=None, crop_by=0, rnd_offset=None):
-        if np.any(window_shape <= stride): raise ValueError('Stride is too large for window shape')
+        if np.any(window_shape < stride): raise ValueError('Stride is too large for window shape')
         #image_arr =  nib.load(image_file_path).get_data()
         #mask_arr = nib.load(image_mask_path).get_data() if image_mask_path else None
         divisions = (np.array(image_arr.shape)/stride).astype(np.int) + 1
