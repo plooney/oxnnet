@@ -13,6 +13,7 @@ class StandardFullInferer(object):
         self.crop_by = crop_by
         self.stride = stride
         self.batch_size = batch_size
+        self.nlabels = nlabels
 
     def evaluate_case(self, sess, model, batch_size, vs, vsegs):
         tup_seg_size_in = tuple(self.segment_size_in.tolist() + [1])
@@ -53,7 +54,6 @@ class StandardFullInferer(object):
         #out_name = os.path.join(save_dir,'prob_' + os.path.basename(tup[0]).split('.')[0] + '.nii.gz')
         #nib.nifti1.save(img_nii,out_name)
 
-        seg_img = nib.load(tup[2]).get_data()
         #pre_arr = pre_arr > 0.5
 
         #img_nii = nib.Nifti1Image(pre_arr.astype(np.uint8), affine=img.affine)
@@ -61,13 +61,22 @@ class StandardFullInferer(object):
         out_name = os.path.join(save_dir, 'pred_' + os.path.basename(tup[0]).split('.')[0] + '.nii.gz')
         nib.nifti1.save(img_nii, out_name)
 
-        dice = 2*np.sum(seg_img*pre_arr)/(np.sum(pre_arr)+np.sum(seg_img))
-        fpr = np.sum((1-seg_img)*pre_arr)/np.sum(1-seg_img)
-        tpr = np.sum(seg_img*pre_arr)/np.sum(seg_img)
-        print("TPR:", tpr, " FPR: ", fpr)
-        return dice
+        if len(tup) == 3:
+            seg_img = nib.load(tup[2]).get_data()
+            seg_img_one_hot = np.eye(self.nlabels)[seg_img.reshape(-1)]
+            pred_img_one_hot = np.eye(self.nlabels)[pre_arr.astype(np.uint8).reshape(-1)]
+            dice_arr = 2*np.sum(seg_img_one_hot*pred_img_one_hot, axis=0)/(
+                np.sum(seg_img_one_hot, axis=0) + np.sum(pred_img_one_hot, axis=0))
+            dice = np.sum(dice_arr)
+            fpr = np.sum((1-seg_img_one_hot)*pred_img_one_hot)/np.sum(1-seg_img_one_hot)
+            tpr = np.sum(seg_img_one_hot*pred_img_one_hot)/np.sum(seg_img_one_hot)
+            print("TPR:", tpr, " FPR: ", fpr, " DSC: ", dice_arr)
+            return dice
+        else:
+            return -1
 
 class TwoPathwayFullInferer(object):
+    """Class to do full inference when there is two pathways in the neural network"""
     def __init__(self, segment_size_in, segment_size_in_ss, segment_size_out, crop_by, stride, batch_size, nlabels=2):
         self.segment_size_in = segment_size_in
         self.segment_size_in_ss = segment_size_in_ss
