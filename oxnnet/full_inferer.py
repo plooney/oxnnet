@@ -71,7 +71,7 @@ class StandardFullInferer(object):
             fpr = np.sum((1-seg_img_one_hot)*pred_img_one_hot)/np.sum(1-seg_img_one_hot)
             tpr = np.sum(seg_img_one_hot*pred_img_one_hot)/np.sum(seg_img_one_hot)
             print("TPR:", tpr, " FPR: ", fpr, " DSC: ", dice_arr)
-            return dice
+            return dice_arr
         else:
             return -1
 
