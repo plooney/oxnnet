@@ -1,4 +1,4 @@
-"""MOdule with one class CNN"""
+"""Module with one class CNN"""
 import os
 import json
 import math
@@ -159,7 +159,6 @@ class CNN(object):
                                                   0, end - start) + time_remaining_string +
                                           message_string)
                         print(message_string)
-
                         if all([num_full_validation_every,
                                 cur_step % num_full_validation_every == 0,
                                 cur_step]):
