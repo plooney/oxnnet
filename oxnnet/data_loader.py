@@ -218,6 +218,94 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         vol_list_dms = img_handler.image_vols_to_vols(dm_arr, tuples)
         return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_dms)
 
+
+class StandardDataLoaderDenoise(AbstractDataLoader):
+    """Class to take an image, a distmap and return a patch of the image, a patch of the distmap
+    cropped and a groundtruth patch cropped."""
+    def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None):
+        super(StandardDataLoaderDenoise, self).__init__(stride, segment_size)
+        self.stride = stride
+        self.segment_size = segment_size
+        self.crop_by = crop_by
+        self.rnd_offset = rnd_offset
+
+    def read_data_dir(self, data_dir, ttv_list):
+        tups = []
+        for d in os.listdir(data_dir):
+            f = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                 if 'mask' not in x and 'thresh' not in x and 'denoise' not in x
+                 and os.path.isfile(os.path.join(data_dir, d, x))][0]
+            m = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                 if 'mask' in x and 'thresh' not in x][0]
+            s = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                 if 'mask' not in x and 'thresh' in x][0]
+            dm = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
+                  if 'denoise' in x][0]
+            tups.append((f, m, s, dm))
+        random.shuffle(tups)
+        self.train_tups = tups[0:ttv_list[0]]
+        self.validation_tups = tups[ttv_list[0]:ttv_list[0]+ttv_list[1]]
+        self.test_tups = tups[ttv_list[0]+ttv_list[1]:ttv_list[0]+ttv_list[1]+ttv_list[2]]
+
+    def read_deepmedic_dir(self, deep_medic_dir):
+        super().read_deepmedic_dir(deep_medic_dir)
+        def append_to_tups(tups):
+            new_tups = []
+            for tup in tups:
+                dname = os.path.dirname(tup[0])
+                dm = [os.path.join(dname, x) for x in os.listdir(os.path.join(dname))
+                      if 'denoise' in x][0]
+                new_tups.append(tup + (dm,))
+            return new_tups
+        self.train_tups = append_to_tups(self.train_tups)
+        self.validation_tups = append_to_tups(self.validation_tups)
+        self.test_tups = append_to_tups(self.test_tups)
+        print(self.train_tups)
+
+    def get_batch(self, tup):
+        print('Reading img {}'.format(tup[0]))
+        batchx = []
+        batchy = []
+        batchy_dm = []
+        vimgs, vsegs, vdms = self.vol_s(tup, self.crop_by)
+        pos_samps = [(v.seg_arr, vseg.seg_arr, vdm.seg_arr) for v, vseg, vdm
+                     in zip(vimgs, vsegs, vdms) if np.any(vseg.seg_arr)]
+        neg_samp_list = [(v.seg_arr, vseg.seg_arr, vdm.seg_arr) for v, vseg, vdm
+                         in zip(vimgs, vsegs, vdms) if not np.any(vseg.seg_arr)]
+        pos_vs, pos_vseg, pos_vdm = list(zip(*pos_samps))
+        #neg_samps = random.sample(neg_samp_list, min(len(neg_samp_list), len(pos_samps)))
+        neg_samps = neg_samp_list
+        neg_vs, neg_vseg, neg_vdm = list(zip(*neg_samps))
+        batchx += pos_vs
+        batchx += neg_vs
+        batchy += pos_vseg
+        batchy += neg_vseg
+        batchy_dm += pos_vdm
+        batchy_dm += neg_vdm
+        print('Done reading img {} with number of segments {} of size {} MBs'.
+              format(tup[0], len(batchx), (sum([x.nbytes for x in batchx]) +
+                                           sum([x.nbytes for x in batchy]))/10**6))
+        return np.array(batchx), np.array(batchy), np.array(batchy_dm), (len(pos_vs), len(neg_vs))
+
+    def vol_s(self, tup, crop_by=0):
+        img_file_path, mask_file_path, seg_file_path, denoise_file_path = tup
+        img_handler = ImageHandler()
+        image_arr = nib.load(img_file_path).get_data()
+        mask_arr = nib.load(mask_file_path).get_data()
+        seg_arr = nib.load(seg_file_path).get_data().astype(np.uint8)
+        denoise_arr = nib.load(denoise_file_path).get_data().astype(np.uint8)
+        image_arr = mask_arr*image_arr + (1-mask_arr)*(image_arr.max())
+        vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size,
+                                             crop_by=crop_by, rnd_offset=self.rnd_offset)
+        tuples = [(np.array(vol.seg_arr.shape), vol.start_voxel)
+                  for vol in vol_list]
+        vol_list_denoise = img_handler.image_vols_to_vols(denoise_arr, tuples)
+                                             
+        tuples = [(np.array(vol.seg_arr.shape)-2*crop_by, vol.start_voxel+crop_by)
+                  for vol in vol_list]
+        vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
+        return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_denoise)
+
 class TwoPathwayDataLoader(AbstractDataLoader):
     """Class to take an image, return a patch of the image,
     a patch of downsampled image
