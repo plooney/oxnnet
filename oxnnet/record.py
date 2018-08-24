@@ -313,3 +313,18 @@ class RecordReader(object):
         return tf.train.shuffle_batch_join(
             example_list, batch_size=batch_size, capacity=capacity,
             min_after_dequeue=min_after_dequeue, allow_smaller_final_batch=True)
+
+    def get_weighting(self, filename):
+        with open(filename, 'r') as f:
+            meta_dict = json.load(f)
+        train_classes = meta_dict['train_classes']
+        weighting = np.sum(np.vstack([x for _, x in train_classes.items()]), axis = 0 )
+        weighting = weighting/np.sum(weighting)
+        weighting = 1 - weighting
+        print(np.sum(weighting))
+        weighting = weighting/np.sum(weighting)
+        return weighting
+
+
+
+

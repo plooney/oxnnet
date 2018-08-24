@@ -20,12 +20,13 @@ def exclude_windows_outside_mask(mask_arr, *vol_segs):
 
 class AbstractDataLoader(object):
     """Abstract class take images and return patches"""
-    def __init__(self, stride, segment_size):
+    def __init__(self, stride, segment_size, nb_classes=2):
         self.train_tups = []
         self.validation_tups = []
         self.test_tups = []
         self.segment_size = segment_size
         self.stride = stride
+        self.nb_classes = nb_classes
 
     def read_metadata(self, filename):
         """Read a metadata file containing information about the records dir"""
@@ -81,8 +82,8 @@ class StandardDataLoader(AbstractDataLoader):
     """Class to take a single images and return a patch of the image and
     a groundtruth patch. Output can be cropped by desired amount"""
     def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None,
-                 aug_pos_samps=False, equal_class_size=True, neg_samps=True):
-        super(StandardDataLoader, self).__init__(stride, segment_size)
+                 aug_pos_samps=False, equal_class_size=True, neg_samps=True, nb_classes=2):
+        super(StandardDataLoader, self).__init__(stride, segment_size,nb_classes)
         self.crop_by = crop_by
         self.rnd_offset = rnd_offset
         self.aug_pos_samps = aug_pos_samps
@@ -96,20 +97,31 @@ class StandardDataLoader(AbstractDataLoader):
         vimgs, vsegs = self.vol_s(tup, self.crop_by)
         pos_samps = [(v.seg_arr, vseg.seg_arr) for v, vseg
                      in zip(vimgs, vsegs) if np.any(vseg.seg_arr)]
+        pos_samps_packed = np.vstack([seg_arr for _, seg_arr in pos_samps]).reshape(-1)
+        one_hot_targets_pos = np.sum(np.eye(self.nb_classes)[pos_samps_packed],axis=0)
+
         if self.aug_pos_samps:
-            pos_samps = (pos_samps +
-                         [(np.fliplr(v1), np.fliplr(v2)) for v1, v2 in pos_samps] +
-                         [(np.rot90(v1), np.rot90(v2)) for v1, v2 in pos_samps] +
-                         [(np.rot90(np.rot90(v1)), np.rot90(np.rot90(v2)))
-                          for v1, v2 in pos_samps] +
-                         [(np.rot90(np.rot90(np.rot90(v1))), np.rot90(np.rot90(np.rot90(v2))))
-                          for v1, v2 in pos_samps])
+            pos_samps = pos_samps
+            + [(np.fliplr(v1), np.fliplr(v2)) for v1, v2 in pos_samps] #+
+            #[(np.rot90(v1), np.rot90(v2)) for v1, v2 in pos_samps] +
+            #[(np.rot90(np.rot90(v1)), np.rot90(np.rot90(v2)))
+            # for v1, v2 in pos_samps] +
+            #[(np.rot90(np.rot90(np.rot90(v1))), np.rot90(np.rot90(np.rot90(v2))))
+            # for v1, v2 in pos_samps])
         neg_samp_list = [(v.seg_arr, vseg.seg_arr) for v, vseg
                          in zip(vimgs, vsegs) if not np.any(vseg.seg_arr)]
         pos_vs, pos_vseg = list(zip(*pos_samps))
         neg_samps = (random.sample(neg_samp_list, min(len(neg_samp_list), len(pos_samps)))
                      if self.equal_class_size else neg_samp_list)
         neg_vs, neg_vseg = [x[0] for x in neg_samps], [x[1] for x in neg_samps]
+
+        neg_samps_packed = np.vstack([seg_arr for _, seg_arr in neg_samps]).reshape(-1)
+        one_hot_targets_neg = np.sum(np.eye(self.nb_classes)[neg_samps_packed],axis=0)
+        weights = one_hot_targets_neg + one_hot_targets_pos
+        #weights = weights/np.sum(weights)
+        weights = tuple(weights)
+        print(weights)
+
         batchx += pos_vs
         batchy += pos_vseg
         if self.neg_samps:
@@ -118,7 +130,7 @@ class StandardDataLoader(AbstractDataLoader):
         print('Done reading img {} with number of segments {} of size {} MBs'
               .format(tup[0], len(batchx), (sum([x.nbytes for x in batchx]) +
                                             sum([x.nbytes for x in batchy]))/10**6))
-        return np.array(batchx), np.array(batchy), (len(pos_vs), len(neg_vs))
+        return np.array(batchx), np.array(batchy), weights 
 
     def vol_s(self, tup, crop_by=0):
         img_file_path, mask_file_path, seg_file_path = tup
