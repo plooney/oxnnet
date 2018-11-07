@@ -101,9 +101,7 @@ class StandardDataLoader(AbstractDataLoader):
         one_hot_targets_pos = np.sum(np.eye(self.nb_classes)[pos_samps_packed],axis=0)
 
         if self.aug_pos_samps:
-            pos_samps = pos_samps
-            + [(np.fliplr(v1), np.fliplr(v2)) for v1, v2 in pos_samps] #+
-            #[(np.rot90(v1), np.rot90(v2)) for v1, v2 in pos_samps] +
+            pos_samps = pos_samps + [(np.fliplr(v1), np.fliplr(v2)) for v1, v2 in pos_samps] #+ [(np.rot90(v1), np.rot90(v2)) for v1, v2 in pos_samps]
             #[(np.rot90(np.rot90(v1)), np.rot90(np.rot90(v2)))
             # for v1, v2 in pos_samps] +
             #[(np.rot90(np.rot90(np.rot90(v1))), np.rot90(np.rot90(np.rot90(v2))))
