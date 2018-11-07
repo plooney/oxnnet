@@ -25,7 +25,7 @@ class CNN(object):
         self.module = module
 
     def train(self, tf_record_dir, save_dir, num_epochs, batch_size, num_save_every,
-              model_file=None, early_stop=False, full_eval_every=1, learning_rate=1e-3):
+              model_file=None, early_stop=False, full_eval_every=1, learning_rate=1e-3, lr_steps=0, lr_decay=0.96):
         """Trains the Model defined in module on the records in tf_record_dir"""
         train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [],
                                  'train_mse': [], 'val_loss': [], 'val_dice': [], 'val_mse': []}
@@ -55,7 +55,10 @@ class CNN(object):
             inferer = model_test.build_full_inferer()
             avg_time = 0
             global_step = tf.Variable(0, name='global_step', trainable=False)
-            optimizer = tf.train.AdamOptimizer(learning_rate).minimize(model.loss_op,
+            starter_learning_rate = 0.1
+            lr = tf.train.exponential_decay(learning_rate, global_step, lr_steps, lr_decay, staircase=True) if lr_steps else learning_rate
+
+            optimizer = tf.train.AdamOptimizer(lr).minimize(model.loss_op,
                                                                        global_step=global_step)
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth = True
