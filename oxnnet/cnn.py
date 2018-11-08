@@ -213,9 +213,9 @@ class CNN(object):
                     dice = inferer(sess, tup, save_dir, model)
                     dices[tup[0]] = dice
                     print("Median: {}, Max: {}, Min: {}"
-                          .format(np.median(list(dices.values())),
-                                  np.max(list(dices.values())),
-                                  np.min(list(dices.values()))))
+                          .format(np.median(list(dices.values()), axis=0),
+                                  np.max(list(dices.values()), axis=0),
+                                  np.min(list(dices.values()), axis=0)))
                 print(dices)
 
     def feats(self, save_dir, test_data, model_file, batch_size):
