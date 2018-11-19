@@ -192,7 +192,7 @@ class CNN(object):
                 print('Finished')
 
     def test(self, save_dir, test_data, model_file, batch_size):
-        with tf.get_default_graph().as_default():
+        #with tf.get_default_graph().as_default():
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             model = self.module.Model(batch_size, False) #get_model_with_placeholders(self.module, reuse=False)
@@ -217,6 +217,8 @@ class CNN(object):
                                   np.max(list(dices.values()), axis=0),
                                   np.min(list(dices.values()), axis=0)))
                 print(dices)
+                return(dices)
+                sess.close()
 
     def feats(self, save_dir, test_data, model_file, batch_size):
         with tf.get_default_graph().as_default():
