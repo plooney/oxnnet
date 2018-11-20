@@ -25,7 +25,7 @@ class CNN(object):
         self.module = module
 
     def train(self, tf_record_dir, save_dir, num_epochs, batch_size, num_save_every,
-              model_file=None, early_stop=False, full_eval_every=1, learning_rate=1e-3, lr_steps=0, lr_decay=0.96):
+              model_file=None, early_stop=False, full_eval_every=0, learning_rate=1e-3, lr_steps=0, lr_decay=0.96):
         """Trains the Model defined in module on the records in tf_record_dir"""
         train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [],
                                  'train_mse': [], 'val_loss': [], 'val_dice': [], 'val_mse': []}
@@ -35,7 +35,7 @@ class CNN(object):
         num_examples = sum([x[1] for x in meta_data['train_examples'].items()])
         num_batches_per_epoch = num_examples//batch_size
         num_batches = math.ceil(num_epochs*num_batches_per_epoch) if num_epochs else 0
-        num_full_validation_every = int(full_eval_every * num_batches_per_epoch)
+        num_full_validation_every = full_eval_every if full_eval_every else num_batches_per_epoch 
         validation_tups = meta_data['validation_tups']
         full_validation_metrics = {k[0]:[] for  k in validation_tups}
         if not os.path.exists(save_dir):
