@@ -150,7 +150,7 @@ class DistMapProcessTup(AbstractProcessTup):
                 'depth': _int64_feature(depth),
                 'volume_seg': _bytes_feature(label_raw),
                 'volume_raw': _floats_feature(volume_raw),
-                'distmap_raw': _bytes_feature(distmap_raw)
+                'distmap_raw': _floats_feature(distmap_raw)
             }
         )
         return features
@@ -160,15 +160,15 @@ class DistMapProcessTup(AbstractProcessTup):
             serialized_example,
             features={
                 'volume_raw': tf.FixedLenFeature([np.prod(self.data_loader.segment_size)], tf.float32),
-                'distmap_raw': tf.FixedLenFeature([], tf.string),
+                'distmap_raw': tf.FixedLenFeature([np.prod(self.data_loader.segment_size)], tf.float32),
                 'volume_seg': tf.FixedLenFeature([], tf.string),
             }
         )
         volume = example['volume_raw']
         volume.set_shape([np.prod(self.data_loader.segment_size)])
 
-        distmap = tf.decode_raw(example['distmap_raw'], tf.uint8)
-        distmap.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
+        distmap = example['distmap_raw']
+        distmap.set_shape([np.prod(self.data_loader.segment_size)])
 
         label = tf.decode_raw(example['volume_seg'], tf.uint8)
         label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
@@ -291,11 +291,6 @@ class RecordReader(object):
     def __init__(self, process_tup):
         self.ptc = process_tup
 
-    def read_and_decode(self, filename_queue):
-        reader = tf.TFRecordReader()
-        _, serialized_example = reader.read(filename_queue)
-        return self.ptc.features_decode(serialized_example)
-
     def input_pipeline(self, train, batch_size, num_epochs, record_dir):
         read_threads = 20
         if not num_epochs:
@@ -304,16 +299,16 @@ class RecordReader(object):
                                      'train' if train else 'validation')
         search_string += '*'
         filenames = glob.glob(search_string)
-        filename_queue = tf.train.string_input_producer(
-            filenames, num_epochs=num_epochs, shuffle=True)
-        example_list = [self.read_and_decode(filename_queue)
-                        for _ in range(read_threads)]
         min_after_dequeue = 1000
         capacity = min_after_dequeue + 3 * batch_size
-        return tf.train.shuffle_batch_join(
-            example_list, batch_size=batch_size, capacity=capacity,
-            min_after_dequeue=min_after_dequeue, allow_smaller_final_batch=True)
-
+        dataset = tf.data.TFRecordDataset(filenames)
+        dataset = dataset.map(self.ptc.features_decode)
+        dataset = dataset.shuffle(1000 + 3 * batch_size)
+        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.batch(batch_size)
+        iterator = dataset.make_one_shot_iterator()
+        return iterator.get_next()
+        
     def get_weighting(self, filename):
         with open(filename, 'r') as f:
             meta_dict = json.load(f)

@@ -70,7 +70,6 @@ class CNN(object):
                 saver = tf.train.Saver()
                 saver_epoch = tf.train.Saver(max_to_keep=None)
                 coord = tf.train.Coordinator()
-                tf.train.start_queue_runners(sess, coord=coord)
                 if model_file:
                     vars_to_restore = model.filter_vars(tf.global_variables())
                     restore_saver = (tf.train.Saver(vars_to_restore)
