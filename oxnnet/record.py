@@ -292,15 +292,13 @@ class RecordReader(object):
         self.ptc = process_tup
 
     def input_pipeline(self, train, batch_size, num_epochs, record_dir):
-        read_threads = 20
+        read_threads = 30
         if not num_epochs:
             num_epochs = None
         search_string = os.path.join(record_dir,
                                      'train' if train else 'validation')
         search_string += '*'
         filenames = glob.glob(search_string)
-        min_after_dequeue = 1000
-        capacity = min_after_dequeue + 3 * batch_size
         dataset = tf.data.TFRecordDataset(filenames)
         dataset = dataset.map(self.ptc.features_decode)
         dataset = dataset.shuffle(1000 + 3 * batch_size)
@@ -319,7 +317,3 @@ class RecordReader(object):
         print(np.sum(weighting))
         weighting = weighting/np.sum(weighting)
         return weighting
-
-
-
-
