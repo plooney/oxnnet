@@ -297,7 +297,7 @@ class RecordReader(object):
         return self.ptc.features_decode(serialized_example)
 
     def input_pipeline(self, train, batch_size, num_epochs, record_dir):
-        read_threads = 30
+        read_threads = 20
         if not num_epochs:
             num_epochs = None
         search_string = os.path.join(record_dir,
@@ -308,7 +308,7 @@ class RecordReader(object):
             filenames, num_epochs=num_epochs, shuffle=True)
         example_list = [self.read_and_decode(filename_queue)
                         for _ in range(read_threads)]
-        min_after_dequeue = 10000
+        min_after_dequeue = 1000
         capacity = min_after_dequeue + 3 * batch_size
         return tf.train.shuffle_batch_join(
             example_list, batch_size=batch_size, capacity=capacity,
@@ -324,7 +324,4 @@ class RecordReader(object):
         print(np.sum(weighting))
         weighting = weighting/np.sum(weighting)
         return weighting
-
-
-
 
