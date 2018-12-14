@@ -167,7 +167,7 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
             s = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
                  if 'mask' not in x and 'thresh' in x][0]
             dm = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
-                  if 'feats' in x][0]
+                  if 'mask' in x][0]
             tups.append((f, m, s, dm))
         random.shuffle(tups)
         self.train_tups = tups[0:ttv_list[0]]
@@ -180,8 +180,8 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
             new_tups = []
             for tup in tups:
                 dname = os.path.dirname(tup[0])
-                dm = [os.path.join(dname, x) for x in os.listdir(os.path.join(dname))
-                      if 'feats' in x][0]
+                #dm = [os.path.join(dname, x) for x in os.listdir(os.path.join(dname))
+                #      if 'feats' in x][0]
                 new_tups.append(tup + (dm,))
             return new_tups
         self.train_tups = append_to_tups(self.train_tups)
@@ -221,12 +221,13 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         return np.array(batchx), np.array(batchy), np.array(batchy_dm), weights 
 
     def vol_s(self, tup, crop_by=0):
-        img_file_path, mask_file_path, seg_file_path, dm_file_path = tup
+        img_file_path, mask_file_path, seg_file_path = tup
         img_handler = ImageHandler()
         image_arr = nib.load(img_file_path).get_data()
         mask_arr = nib.load(mask_file_path).get_data()
         seg_arr = nib.load(seg_file_path).get_data().astype(np.uint8)
-        dm_arr = nib.load(dm_file_path).get_data().astype(np.uint8)
+        #dm_arr = nib.load(dm_file_path).get_data().astype(np.uint8)
+        dm_arr = nib.load(mask_file_path).get_data().astype(np.uint8)
         image_arr = mask_arr*image_arr + (1-mask_arr)*(image_arr.max())
         vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size,
                                              crop_by=crop_by, rnd_offset=self.rnd_offset)

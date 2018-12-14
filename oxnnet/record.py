@@ -150,7 +150,7 @@ class DistMapProcessTup(AbstractProcessTup):
                 'depth': _int64_feature(depth),
                 'volume_seg': _bytes_feature(label_raw),
                 'volume_raw': _floats_feature(volume_raw),
-                'distmap_raw': _floats_feature(distmap_raw)
+                'distmap_raw': _bytes_feature(distmap_raw)
             }
         )
         return features
@@ -160,15 +160,15 @@ class DistMapProcessTup(AbstractProcessTup):
             serialized_example,
             features={
                 'volume_raw': tf.FixedLenFeature([np.prod(self.data_loader.segment_size)], tf.float32),
-                'distmap_raw': tf.FixedLenFeature([np.prod(self.data_loader.segment_size)], tf.float32),
+                'distmap_raw': tf.FixedLenFeature([], tf.string),
                 'volume_seg': tf.FixedLenFeature([], tf.string),
             }
         )
         volume = example['volume_raw']
         volume.set_shape([np.prod(self.data_loader.segment_size)])
 
-        distmap = example['distmap_raw']
-        distmap.set_shape([np.prod(self.data_loader.segment_size)])
+        distmap = tf.decode_raw(example['distmap_raw'], tf.uint8)
+        distmap.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
 
         label = tf.decode_raw(example['volume_seg'], tf.uint8)
         label.set_shape([np.prod(self.data_loader.segment_size-2*self.data_loader.crop_by)])
@@ -185,7 +185,7 @@ class DistMapProcessTup(AbstractProcessTup):
         writer = tf.python_io.TFRecordWriter(filename)
         for index in range(volumes.shape[0]):
             volume_raw = volumes[index].ravel()
-            distmap_raw = distmap[index].ravel()
+            distmap_raw = distmap[index].tostring()
             label_raw = labels[index].tostring()
             example = tf.train.Example(
                 features=self.features_encode(label_raw, volume_raw, distmap_raw, rows, cols, depth)
