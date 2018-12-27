@@ -148,8 +148,9 @@ class StandardDataLoader(AbstractDataLoader):
 class StandardDataLoaderDistMap(AbstractDataLoader):
     """Class to take an image, a distmap and return a patch of the image, a patch of the distmap
     cropped and a groundtruth patch cropped."""
-    def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None):
-        super(StandardDataLoaderDistMap, self).__init__(stride, segment_size)
+    def __init__(self, stride, segment_size, crop_by=0, rnd_offset=None,
+                 aug_pos_samps=False, equal_class_size=True, neg_samps=True, nb_classes=2):
+        super(StandardDataLoaderDistMap, self).__init__(stride, segment_size,nb_classes)
         self.stride = stride
         self.segment_size = segment_size
         self.crop_by = crop_by
@@ -159,14 +160,14 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         tups = []
         for d in os.listdir(data_dir):
             f = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
-                 if 'mask' not in x and 'thresh' not in x and 'distmap' not in x
+                 if 'mask' not in x and 'thresh' not in x and 'feats' not in x
                  and os.path.isfile(os.path.join(data_dir, d, x))][0]
             m = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
                  if 'mask' in x and 'thresh' not in x][0]
             s = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
                  if 'mask' not in x and 'thresh' in x][0]
             dm = [os.path.join(data_dir, d, x) for x in os.listdir(os.path.join(data_dir, d))
-                  if 'distmap' in x][0]
+                  if 'mask' in x][0]
             tups.append((f, m, s, dm))
         random.shuffle(tups)
         self.train_tups = tups[0:ttv_list[0]]
@@ -179,8 +180,8 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
             new_tups = []
             for tup in tups:
                 dname = os.path.dirname(tup[0])
-                dm = [os.path.join(dname, x) for x in os.listdir(os.path.join(dname))
-                      if 'distmap' in x][0]
+                #dm = [os.path.join(dname, x) for x in os.listdir(os.path.join(dname))
+                #      if 'feats' in x][0]
                 new_tups.append(tup + (dm,))
             return new_tups
         self.train_tups = append_to_tups(self.train_tups)
@@ -196,11 +197,18 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         vimgs, vsegs, vdms = self.vol_s(tup, self.crop_by)
         pos_samps = [(v.seg_arr, vseg.seg_arr, vdm.seg_arr) for v, vseg, vdm
                      in zip(vimgs, vsegs, vdms) if np.any(vseg.seg_arr)]
+        pos_samps_packed = np.vstack([seg_arr for _, seg_arr, _ in pos_samps]).reshape(-1)
+        one_hot_targets_pos = np.sum(np.eye(self.nb_classes)[pos_samps_packed],axis=0)
+
         neg_samp_list = [(v.seg_arr, vseg.seg_arr, vdm.seg_arr) for v, vseg, vdm
                          in zip(vimgs, vsegs, vdms) if not np.any(vseg.seg_arr)]
         pos_vs, pos_vseg, pos_vdm = list(zip(*pos_samps))
         neg_samps = random.sample(neg_samp_list, min(len(neg_samp_list), len(pos_samps)))
         neg_vs, neg_vseg, neg_vdm = list(zip(*neg_samps))
+        neg_samps_packed = np.vstack([seg_arr for _, seg_arr, _ in neg_samps]).reshape(-1)
+        one_hot_targets_neg = np.sum(np.eye(self.nb_classes)[neg_samps_packed],axis=0)
+        weights = one_hot_targets_neg + one_hot_targets_pos
+        weights = tuple(weights)
         batchx += pos_vs
         batchx += neg_vs
         batchy += pos_vseg
@@ -210,22 +218,25 @@ class StandardDataLoaderDistMap(AbstractDataLoader):
         print('Done reading img {} with number of segments {} of size {} MBs'.
               format(tup[0], len(batchx), (sum([x.nbytes for x in batchx]) +
                                            sum([x.nbytes for x in batchy]))/10**6))
-        return np.array(batchx), np.array(batchy), np.array(batchy_dm), (len(pos_vs), len(neg_vs))
+        return np.array(batchx), np.array(batchy), np.array(batchy_dm), weights 
 
     def vol_s(self, tup, crop_by=0):
-        img_file_path, mask_file_path, seg_file_path, dm_file_path = tup
+        img_file_path, mask_file_path, seg_file_path = tup
         img_handler = ImageHandler()
         image_arr = nib.load(img_file_path).get_data()
         mask_arr = nib.load(mask_file_path).get_data()
         seg_arr = nib.load(seg_file_path).get_data().astype(np.uint8)
-        dm_arr = nib.load(dm_file_path).get_data().astype(np.uint8)
+        #dm_arr = nib.load(dm_file_path).get_data().astype(np.uint8)
+        dm_arr = nib.load(mask_file_path).get_data().astype(np.uint8)
         image_arr = mask_arr*image_arr + (1-mask_arr)*(image_arr.max())
         vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size,
                                              crop_by=crop_by, rnd_offset=self.rnd_offset)
+        tuples = [(np.array(vol.seg_arr.shape), vol.start_voxel)
+                  for vol in vol_list]
+        vol_list_dms = img_handler.image_vols_to_vols(dm_arr, tuples)
         tuples = [(np.array(vol.seg_arr.shape)-2*crop_by, vol.start_voxel+crop_by)
                   for vol in vol_list]
         vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
-        vol_list_dms = img_handler.image_vols_to_vols(dm_arr, tuples)
         return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs, vol_list_dms)
 
 

@@ -185,7 +185,7 @@ class DistMapProcessTup(AbstractProcessTup):
         writer = tf.python_io.TFRecordWriter(filename)
         for index in range(volumes.shape[0]):
             volume_raw = volumes[index].ravel()
-            distmap_raw = distmap[index].ravel()
+            distmap_raw = distmap[index].tostring()
             label_raw = labels[index].tostring()
             example = tf.train.Example(
                 features=self.features_encode(label_raw, volume_raw, distmap_raw, rows, cols, depth)
@@ -291,11 +291,6 @@ class RecordReader(object):
     def __init__(self, process_tup):
         self.ptc = process_tup
 
-    def read_and_decode(self, filename_queue):
-        reader = tf.TFRecordReader()
-        _, serialized_example = reader.read(filename_queue)
-        return self.ptc.features_decode(serialized_example)
-
     def input_pipeline(self, train, batch_size, num_epochs, record_dir):
         read_threads = 20
         if not num_epochs:
@@ -304,16 +299,14 @@ class RecordReader(object):
                                      'train' if train else 'validation')
         search_string += '*'
         filenames = glob.glob(search_string)
-        filename_queue = tf.train.string_input_producer(
-            filenames, num_epochs=num_epochs, shuffle=True)
-        example_list = [self.read_and_decode(filename_queue)
-                        for _ in range(read_threads)]
-        min_after_dequeue = 1000
-        capacity = min_after_dequeue + 3 * batch_size
-        return tf.train.shuffle_batch_join(
-            example_list, batch_size=batch_size, capacity=capacity,
-            min_after_dequeue=min_after_dequeue, allow_smaller_final_batch=True)
-
+        dataset = tf.data.TFRecordDataset(filenames)
+        dataset = dataset.map(self.ptc.features_decode)
+        dataset = dataset.shuffle(1000 + 3 * batch_size)
+        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.batch(batch_size)
+        iterator = dataset.make_one_shot_iterator()
+        return iterator.get_next()
+        
     def get_weighting(self, filename):
         with open(filename, 'r') as f:
             meta_dict = json.load(f)
@@ -324,4 +317,3 @@ class RecordReader(object):
         print(np.sum(weighting))
         weighting = weighting/np.sum(weighting)
         return weighting
-

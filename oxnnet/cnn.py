@@ -70,7 +70,6 @@ class CNN(object):
                 saver = tf.train.Saver()
                 saver_epoch = tf.train.Saver(max_to_keep=None)
                 coord = tf.train.Coordinator()
-                tf.train.start_queue_runners(sess, coord=coord)
                 if model_file:
                     vars_to_restore = model.filter_vars(tf.global_variables())
                     restore_saver = (tf.train.Saver(vars_to_restore)
@@ -99,7 +98,7 @@ class CNN(object):
                                                              model_eval.dice_op,
                                                              merged, model.mse,
                                                              model_eval.mse,
-                                                             optimizer] +
+                                                             ] +
                                                             model_eval.metric_update_ops +
                                                             model.metric_update_ops)[0:7]
                             summary_writer.add_summary(summaries, cur_step)
@@ -138,8 +137,8 @@ class CNN(object):
                             train_loss_iterations['val_mse'].append(None)
                             train_loss, train_dice, train_mse = sess.run([model.loss_op,
                                                                           model.dice_op,
-                                                                          model.mse,
-                                                                          optimizer])[0:3]
+                                                                          model.mse
+                                                                          ])[0:3]
                         train_loss_iterations['iteration'].append(cur_step)
                         train_loss_iterations['epoch'].append(epoch)
                         train_loss_iterations['train_loss'].append(train_loss)
@@ -183,6 +182,8 @@ class CNN(object):
                                        for k, v in full_validation_metrics.items()},
                                       mode='a',
                                       header=False)
+                        #Run optimiser after saving/evaluating the model 
+                        sess.run(optimizer)
                 except tf.errors.OutOfRangeError:
                     print('Done training')
                 finally:
