@@ -25,7 +25,7 @@ class CNN(object):
         self.module = module
 
     def train(self, tf_record_dir, save_dir, num_epochs, batch_size, num_save_every,
-              model_file=None, early_stop=False, full_eval_every=0, learning_rate=1e-3, lr_steps=0, lr_decay=0.96):
+              model_file=None, early_stop=False, full_eval_every=0, learning_rate=1e-3, lr_steps=0, lr_decay=0.96, avg = False):
         """Trains the Model defined in module on the records in tf_record_dir"""
         train_loss_iterations = {'iteration': [], 'epoch': [], 'train_loss': [], 'train_dice': [],
                                  'train_mse': [], 'val_loss': [], 'val_dice': [], 'val_mse': []}
@@ -35,7 +35,7 @@ class CNN(object):
         num_examples = sum([x[1] for x in meta_data['train_examples'].items()])
         num_batches_per_epoch = num_examples//batch_size
         num_batches = math.ceil(num_epochs*num_batches_per_epoch) if num_epochs else 0
-        num_full_validation_every = full_eval_every if full_eval_every else num_batches_per_epoch 
+        num_full_validation_every = full_eval_every if full_eval_every else num_batches_per_epoch
         validation_tups = meta_data['validation_tups']
         full_validation_metrics = {k[0]:[] for  k in validation_tups}
         if not os.path.exists(save_dir):
@@ -57,8 +57,11 @@ class CNN(object):
             global_step = tf.Variable(0, name='global_step', trainable=False)
             lr = tf.train.exponential_decay(learning_rate, global_step, lr_steps, lr_decay, staircase=True) if lr_steps else learning_rate
 
-            optimizer = tf.train.AdamOptimizer(lr).minimize(model.loss_op,
-                                                                       global_step=global_step)
+            optimizer = tf.train.AdamOptimizer(lr)
+            tf.summary.scalar('learning_rate', lr)
+            update_op = self._avg(model.loss_op, optimizer, global_step) if avg else optimizer.minimize(model.loss_op,
+                                                                                                        global_step=global_step)
+
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth = True
             with tf.Session(config=config) as sess:
@@ -183,7 +186,7 @@ class CNN(object):
                                       mode='a',
                                       header=False)
                         #Run optimiser after saving/evaluating the model 
-                        sess.run(optimizer)
+                        sess.run(update_op)
                 except tf.errors.OutOfRangeError:
                     print('Done training')
                 finally:
@@ -192,12 +195,17 @@ class CNN(object):
                     coord.request_stop()
                 print('Finished')
 
-    def test(self, save_dir, test_data, model_file, batch_size):
+    def test(self, save_dir, test_data, model_file, batch_size, avg=False):
         #with tf.get_default_graph().as_default():
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             model = self.module.Model(batch_size, False) #get_model_with_placeholders(self.module, reuse=False)
-            saver = tf.train.Saver()
+            if avg:
+                variable_averages = tf.train.ExponentialMovingAverage(0.999)
+                variables_to_restore = variable_averages.variables_to_restore()
+                saver = tf.train.Saver(variables_to_restore)
+            else:
+                saver = tf.train.Saver()
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 saver.restore(sess, model_file)
@@ -248,3 +256,57 @@ class CNN(object):
         if os.listdir(output_dir):
             print("Warning: Directory not empty - metadata may be incorrect it directory contains TFRecords")
         self.module.build_record_writer(data_dir, dir_type_flag).write_records(output_dir)
+
+    def _add_loss_summaries(self, total_loss):
+        """Add summaries for losses in CIFAR-10 model.
+        Generates moving average for all losses and associated summaries for
+        visualizing the performance of the network.
+        Args:
+            total_loss: Total loss from loss().
+            Returns:
+                loss_averages_op: op for generating moving averages of losses.
+                """
+        # Compute the moving average of all individual losses and the total loss.
+        loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+        losses = tf.get_collection('losses')
+        loss_averages_op = loss_averages.apply(losses + [total_loss])
+
+        # Attach a scalar summary to all individual losses and the total loss; do the
+        # same for the averaged version of the losses.
+        for l in losses + [total_loss]:
+            # Name each loss as '(raw)' and name the moving average version of the loss
+            # as the original loss name.
+            tf.summary.scalar(l.op.name + ' (raw)', l)
+            tf.summary.scalar(l.op.name, loss_averages.average(l))
+
+        return loss_averages_op
+
+    def _avg(self, loss_op, opt, global_step):
+        print("Doing avg")
+        # GeneraVte moving averages of all losses and associated summaries.
+        loss_averages_op = self._add_loss_summaries(loss_op)
+
+        # Compute gradients.
+        with tf.control_dependencies([loss_averages_op]):
+            #opt = tf.train.GradientDescentOptimizer(0.001)
+            grads = opt.compute_gradients(loss_op)
+
+            # Apply gradients.
+            apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+
+            # Add histograms for trainable variables.
+            for var in tf.trainable_variables():
+                tf.summary.histogram(var.op.name, var)
+
+            # Add histograms for gradients.
+            for grad, var in grads:
+                if grad is not None:
+                    tf.summary.histogram(var.op.name + '/gradients', grad)
+
+            # Track the moving averages of all trainable variables.
+            variable_averages = tf.train.ExponentialMovingAverage(
+                0.999, global_step)
+            with tf.control_dependencies([apply_gradient_op]):
+                variables_averages_op = variable_averages.apply(tf.trainable_variables())
+
+            return variables_averages_op

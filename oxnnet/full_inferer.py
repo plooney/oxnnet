@@ -29,7 +29,7 @@ class StandardFullInferer(object):
             y_out_list.append(y_out)
             print("Segmenting ", i+1, " of ", num_batches, y_out.shape)
         v_out_shape = [len(vs)] + self.segment_size_out.tolist()
-        yr = np.vstack(y_out_list) #.reshape(v_out_shape)
+        yr = np.vstack(y_out_list).reshape(v_out_shape)
         yr_labels = np.vstack([v.seg_arr for v in vsegs]).reshape(v_out_shape)
         dice_segments = 2*np.sum(yr*yr_labels)/(np.sum(yr)+np.sum(yr_labels))
         print("Full DICE: ", dice_segments, "No:", len(vsegs))
