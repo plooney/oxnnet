@@ -61,6 +61,8 @@ class CNN(object):
             tf.summary.scalar('learning_rate', lr)
             update_op = self._avg(model.loss_op, optimizer, global_step) if avg else optimizer.minimize(model.loss_op,
                                                                                                         global_step=global_step)
+            #update_op = optimizer.minimize(model.loss_op,
+            #                               global_step=global_step)
 
             #config = tf.ConfigProto()
             #config.gpu_options.allow_growth = True
@@ -263,13 +265,13 @@ class CNN(object):
         visualizing the performance of the network.
         Args:
             total_loss: Total loss from loss().
-            Returns:
-                loss_averages_op: op for generating moving averages of losses.
-                """
+        Returns:
+            loss_averages_op: op for generating moving averages of losses.
+            """
         # Compute the moving average of all individual losses and the total loss.
-        loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+        loss_averages = tf.train.ExponentialMovingAverage(0.999, name='avg')
         losses = tf.get_collection('losses')
-        loss_averages_op = loss_averages.apply(losses + [total_loss])
+        loss_averages_op = loss_averages.apply([total_loss])
 
         # Attach a scalar summary to all individual losses and the total loss; do the
         # same for the averaged version of the losses.
@@ -310,3 +312,6 @@ class CNN(object):
                 variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
             return variables_averages_op
+            #return loss_op
+        #return opt.minimize(loss_op,
+        #                    global_step=global_step)
