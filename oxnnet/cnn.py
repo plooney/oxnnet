@@ -271,7 +271,7 @@ class CNN(object):
         # Compute the moving average of all individual losses and the total loss.
         loss_averages = tf.train.ExponentialMovingAverage(0.999, name='avg')
         losses = tf.get_collection('losses')
-        loss_averages_op = loss_averages.apply([total_loss])
+        loss_averages_op = loss_averages.apply(losses + [total_loss])
 
         # Attach a scalar summary to all individual losses and the total loss; do the
         # same for the averaged version of the losses.
