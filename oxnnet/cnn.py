@@ -54,10 +54,9 @@ class CNN(object):
             model_test = self.module.Model(batch_size, True)
             inferer = model_test.build_full_inferer()
             avg_time = 0
-            global_step = tf.Variable(0, name='global_step', trainable=False)
-            lr = tf.train.exponential_decay(learning_rate, global_step, lr_steps, lr_decay, staircase=True) if lr_steps else learning_rate
-
-            optimizer = tf.train.AdamOptimizer(lr)
+            global_step = model.global_step #tf.Variable(0, name='global_step', trainable=False)
+            lr = model.lr #tf.train.exponential_decay(learning_rate, global_step, lr_steps, lr_decay, staircase=True) if lr_steps else learning_rate
+            optimizer = model.optimizer #tf.train.AdamOptimizer(lr  of decay_steps)
             tf.summary.scalar('learning_rate', lr)
             update_op = self._avg(model.loss_op, optimizer, global_step) if avg else optimizer.minimize(model.loss_op,
                                                                                                         global_step=global_step)
