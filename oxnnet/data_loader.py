@@ -94,7 +94,7 @@ class StandardDataLoader(AbstractDataLoader):
         print('Reading img {}'.format(tup[0]))
         batchx = []
         batchy = []
-        vimgs, vsegs = self.vol_s(tup, self.crop_by)
+        vimgs, vsegs, vmasks = self.vol_s(tup, self.crop_by)
         pos_samps = [(v.seg_arr, vseg.seg_arr) for v, vseg
                      in zip(vimgs, vsegs) if np.any(vseg.seg_arr)]
         pos_samps_packed = np.vstack([seg_arr for _, seg_arr in pos_samps]).reshape(-1)
@@ -106,8 +106,8 @@ class StandardDataLoader(AbstractDataLoader):
             # for v1, v2 in pos_samps] +
             #[(np.rot90(np.rot90(np.rot90(v1))), np.rot90(np.rot90(np.rot90(v2))))
             # for v1, v2 in pos_samps])
-        neg_samp_list = [(v.seg_arr, vseg.seg_arr) for v, vseg
-                         in zip(vimgs, vsegs) if not np.any(vseg.seg_arr)]
+        neg_samp_list = [(v.seg_arr, vseg.seg_arr) for v, vseg, vmask
+                         in zip(vimgs, vsegs, vmasks) if not np.any(vseg.seg_arr)] # and np.mean(vmask.seg_arr)>0.5]
         pos_vs, pos_vseg = list(zip(*pos_samps))
         neg_samps = (random.sample(neg_samp_list, min(len(neg_samp_list), len(pos_samps)))
                      if self.equal_class_size else neg_samp_list)
@@ -143,7 +143,9 @@ class StandardDataLoader(AbstractDataLoader):
         tuples = [(np.array(vol.seg_arr.shape)-2*crop_by, vol.start_voxel+crop_by)
                   for vol in vol_list]
         vol_list_segs = img_handler.image_vols_to_vols(seg_arr, tuples)
-        return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs)
+        vol_list_masks = img_handler.image_vols_to_vols(mask_arr, tuples)
+        #return exclude_windows_outside_mask(mask_arr, vol_list, vol_list_segs)
+        return vol_list, vol_list_segs, vol_list_masks
 
 class StandardDataLoaderDistMap(AbstractDataLoader):
     """Class to take an image, a distmap and return a patch of the image, a patch of the distmap

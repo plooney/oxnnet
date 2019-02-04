@@ -42,7 +42,7 @@ class StandardFullInferer(object):
         vol_shape = img_data.shape
         print(self.stride)
         data_loader = StandardDataLoader(self.stride, self.segment_size_in)
-        vs, vsegs = data_loader.vol_s(tup[0:3], crop_by=self.crop_by)
+        vs, vsegs, _ = data_loader.vol_s(tup[0:3], crop_by=self.crop_by)
         yr_labels, yr = self.evaluate_case(sess, model, self.batch_size, vs, vsegs)
 
         vpreds = [VolumeSegment(start_voxel=vol.start_voxel, seg_arr=seg_arr)
