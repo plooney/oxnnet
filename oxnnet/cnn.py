@@ -75,10 +75,18 @@ class CNN(object):
                 saver_epoch = tf.train.Saver(max_to_keep=None)
                 coord = tf.train.Coordinator()
                 if model_file:
-                    vars_to_restore = model.filter_vars(tf.global_variables())
-                    restore_saver = (tf.train.Saver(vars_to_restore)
-                                     if vars_to_restore else tf.train.Saver())
-                    restore_saver.restore(sess, model_file)
+                    if avg:
+                        variable_averages = tf.train.ExponentialMovingAverage(0.999)
+                        vars_to_restore = variable_averages.variables_to_restore()
+                        vars_to_restore = model.filter_vars(vars_to_restore)
+                        restore_saver = (tf.train.Saver(vars_to_restore)
+                                         if vars_to_restore else tf.train.Saver())
+                        restore_saver.restore(sess, model_file)
+                    else:
+                        vars_to_restore = model.filter_vars(tf.global_variables())
+                        restore_saver = (tf.train.Saver(vars_to_restore)
+                                         if vars_to_restore else tf.train.Saver())
+                        restore_saver.restore(sess, model_file)
                 try:
                     continue_training = True
                     epoch = previous_epoch = 0
