@@ -99,7 +99,6 @@ class StandardDataLoader(AbstractDataLoader):
                      in zip(vimgs, vsegs) if np.any(vseg.seg_arr)]
         pos_samps_packed = np.vstack([seg_arr for _, seg_arr in pos_samps]).reshape(-1)
         one_hot_targets_pos = np.sum(np.eye(self.nb_classes)[pos_samps_packed],axis=0)
-
         if self.aug_pos_samps:
             pos_samps = pos_samps + [(np.fliplr(v1), np.fliplr(v2)) for v1, v2 in pos_samps] #+ [(np.rot90(v1), np.rot90(v2)) for v1, v2 in pos_samps]
             #[(np.rot90(np.rot90(v1)), np.rot90(np.rot90(v2)))
@@ -112,14 +111,12 @@ class StandardDataLoader(AbstractDataLoader):
         neg_samps = (random.sample(neg_samp_list, min(len(neg_samp_list), len(pos_samps)))
                      if self.equal_class_size else neg_samp_list)
         neg_vs, neg_vseg = [x[0] for x in neg_samps], [x[1] for x in neg_samps]
-
         neg_samps_packed = np.vstack([seg_arr for _, seg_arr in neg_samps]).reshape(-1)
         one_hot_targets_neg = np.sum(np.eye(self.nb_classes)[neg_samps_packed],axis=0)
         weights = one_hot_targets_neg + one_hot_targets_pos
         #weights = weights/np.sum(weights)
         weights = tuple(weights)
         print(weights)
-
         batchx += pos_vs
         batchy += pos_vseg
         if self.neg_samps:
@@ -136,7 +133,7 @@ class StandardDataLoader(AbstractDataLoader):
         image_arr = nib.load(img_file_path).get_data()
         mask_arr = nib.load(mask_file_path).get_data()
         seg_arr = nib.load(seg_file_path).get_data().astype(np.uint8)
-        image_arr = mask_arr*image_arr + (1-mask_arr)*(image_arr.max())
+        #image_arr = image_arr #+ (1-mask_arr)*(image_arr.max())
         vol_list = img_handler.image_to_vols(image_arr, self.stride, self.segment_size,
                                              crop_by=crop_by, rnd_offset=self.rnd_offset,
                                              mask_arr=mask_arr)
