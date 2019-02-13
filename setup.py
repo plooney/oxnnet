@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name = "oxnnet",
-    version = "0.0.4",
+    version = "0.1.0",
     author = "Padraig Looney",
     author_email = "padraig.looney@gmail.com",
     description = (" "
