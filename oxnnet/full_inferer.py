@@ -25,29 +25,10 @@ class StandardFullInferer(object):
         y_out_list = []
         for i in range(0, num_batches):
             batch = full_batch[i*batch_size:min(len(vs), (i+1)*batch_size)]
-            batch1 = np.concatenate(full_batch[2*i*batch_size//2:min(len(vs), (2*i+1)*batch_size//2)])
-            batch2 = np.concatenate(full_batch[(2*i+1)*batch_size//2:min(len(vs), (2*i+2)*batch_size//2)])
             batch= np.concatenate(batch)
             y_out = sess.run(model.pred, feed_dict={model.X:batch}) #.reshape([len(batch)] + list(self.segment_size_out) + [1])
-            #y_out1 = sess.run(model.pred, feed_dict={model.X:batch1}) #.reshape([len(batch)] + list(self.segment_size_out) + [1])
-            #y_out2 = sess.run(model.pred, feed_dict={model.X:batch2}) #.reshape([len(batch)] + list(self.segment_size_out) + [1])
-            #print(np.all(y_out==np.concatenate([y_out1,y_out2])))
-            #y_out.reshape([len(batch)]+self.segment_size_out.tolist())
             y_out_list = np.concatenate([y_out_list,y_out]) if not y_out_list == [] else y_out #.append(y_out)
             print("Segmenting ", i+1, " of ", num_batches, y_out.shape, batch.shape)
-        #batch_size = 17
-        #num_batches = (len(vs)//batch_size)
-        #if len(vs) % batch_size: num_batches += 1
-        #y_out_list2 = []
-        #for i in range(0, num_batches):
-        #    batch = full_batch[i*batch_size:min(len(vs), (i+1)*batch_size)]
-        #    batch= np.concatenate(batch)
-        #    y_out = sess.run(model.pred, feed_dict={model.X:batch}) #.reshape([len(batch)] + list(self.segment_size_out) + [1])
-            #y_out.reshape([len(batch)]+self.segment_size_out.tolist())
-        #    y_out_list2 = np.concatenate([y_out_list2,y_out]) if not y_out_list2 == [] else y_out #.append(y_out)
-        #    print("Segmenting ", i+1, " of ", num_batches, y_out.shape, batch.shape)
-        #print(np.all(y_out_list2==y_out_list))
-        #yr = np.concatenate([v.seg_arr[22:64,22:64,22:64].reshape([1]+list(self.segment_size_out)) for v in vs])
         v_out_shape = [len(vs)] + self.segment_size_out.tolist()
         print(y_out_list.shape, np.concatenate([v.seg_arr.reshape([1]+list(v.seg_arr.shape)) for v in vsegs]).shape)
         yr = y_out_list #np.concatenate(y_out_list) #.reshape(v_out_shape)
