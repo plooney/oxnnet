@@ -76,11 +76,11 @@ class CNN(object):
                 coord = tf.train.Coordinator()
                 if model_file:
                     if avg:
-                        print("using averages")
+                        #print("using averages")
                         variable_averages = tf.train.ExponentialMovingAverage(0.999)
                         vars_to_restore = variable_averages.variables_to_restore()
-                        vars_to_restore = model.filter_vars(vars_to_restore)
                         print(vars_to_restore)
+                        #vars_to_restore = model.filter_vars(vars_to_restore)
                         restore_saver = (tf.train.Saver(vars_to_restore)
                                          if vars_to_restore else tf.train.Saver())
                         restore_saver.restore(sess, model_file)
