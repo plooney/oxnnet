@@ -56,7 +56,7 @@ class StandardFullInferer(object):
         out_name = os.path.join(save_dir, 'pred_' + os.path.basename(tup[0]).split('.')[0] + '.nii.gz')
         nib.nifti1.save(img_nii, out_name)
         if len(tup) == 3:
-            seg_img = nib.load(tup[2]).get_data().astype(int,casting='safe')
+            seg_img = nib.load(tup[2]).get_data().astype(int)
             print(seg_img.dtype)
             seg_img_one_hot = np.eye(self.nlabels,dtype=int)[seg_img.reshape(-1)]
             pred_img_one_hot = np.eye(self.nlabels,dtype=int)[pre_arr.astype(np.uint8).reshape(-1)]
