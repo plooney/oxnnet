@@ -57,8 +57,8 @@ class StandardFullInferer(object):
         nib.nifti1.save(img_nii, out_name)
         if len(tup) == 3:
             seg_img = nib.load(tup[2]).get_data()
-            seg_img_one_hot = np.eye(self.nlabels)[seg_img.reshape(-1)]
-            pred_img_one_hot = np.eye(self.nlabels)[pre_arr.astype(np.uint8).reshape(-1)]
+            seg_img_one_hot = np.eye(self.nlabels,dtype=int)[seg_img.reshape(-1)]
+            pred_img_one_hot = np.eye(self.nlabels,dtype=int)[pre_arr.astype(np.uint8).reshape(-1)]
             dice_arr = 2*np.sum(seg_img_one_hot*pred_img_one_hot, axis=0)/(
                 np.sum(seg_img_one_hot, axis=0) + np.sum(pred_img_one_hot, axis=0))
             dice = np.sum(dice_arr)
